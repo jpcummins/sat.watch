@@ -1,0 +1,115 @@
+package templates
+
+import (
+	"strconv"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+	"github.com/jpcummins/satwatch/internal/api"
+	"fmt"
+)
+
+func getAddressUrl(address api.Address) string {
+	return "/app/addresses/" + address.ID
+}
+
+func getShortenedAddress(address api.Address) string {
+	return address.Address[0:4] + "…" + address.Address[len(address.Address)-4:]
+}
+
+func getUtxoSum(address api.Address) string {
+	var amount uint64 = 0
+	for _, utxo := range address.UTXOs {
+		amount = amount + utxo.Value
+	}
+	p := message.NewPrinter(language.English)
+	return p.Sprintf("%d", amount)
+}
+
+func getXpubName(id string, xpubs []api.Xpub) string {
+	for _, xpub := range xpubs {
+		if xpub.ID == id {
+			return getShortenedXpub(xpub.Pubkey)
+		}
+	}
+	return ""
+}
+
+func getShortenedXpub(xpub string) string {
+	return xpub[0:6] + "…" + xpub[len(xpub)-3:]
+}
+
+templ ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) {
+	<div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+		<table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+			<thead class="text-xs text-gray-700 uppercase bg-gray-800 dark:text-gray-400">
+				<tr>
+					<th scope="col" class="px-3 md:px-6 py-3">
+						Address
+					</th>
+					<th scope="col" class="px-3 md:px-6 py-3 hidden md:table-cell">
+						<div class="flex items-center">
+							UTXOs
+						</div>
+					</th>
+					<th scope="col" class="px-3 md:px-6 py-3">
+						<div class="flex items-center">
+							Amount
+						</div>
+					</th>
+				</tr>
+			</thead>
+			<tbody class="">
+				for _, address := range addresses {
+					<tr class="bg-white border-b dark:bg-gray-800/75 dark:border-gray-700">
+						<th scope="row" class="px-3 md:px-6 py-4 whitespace-nowrap flex items-center font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 ">
+							<span class="hidden md:flex w-3 h-3 me-3 bg-green-500 rounded-full"></span>
+							if address.XpubID != nil {
+								<a class="font-medium text-blue-600 dark:text-blue-500 hover:underline" href={ templ.URL(fmt.Sprintf("/app/xpubs/%s", *address.XpubID)) }>{ getXpubName(*address.XpubID, xpubs) }</a>
+								<span class="text-gray-300 ml-2">
+									if address.IsExternal {
+										m/0/{ fmt.Sprintf("%d", address.AddressIndex) }
+									} else {
+										m/1/{ fmt.Sprintf("%d", address.AddressIndex) }
+									}
+								</span>
+								<span class="mx-1 text-base text-gray-900 dark:text-white">›</span>
+							}
+							<a class="" href={ templ.URL(getAddressUrl(address)) }>
+								<span class="hover:underline hidden md:inline-block">{ address.Address }</span>
+								<span class="hover:underline md:hidden">{ getShortenedAddress(address) }</span>
+							</a>
+						</th>
+						<td class="hidden md:table-cell px-3 md:px-6 py-4">
+							{ strconv.Itoa(len(address.UTXOs)) }
+						</td>
+						<td class="px-3 md:px-6 py-4">
+							{ getUtxoSum(address) }
+						</td>
+					</tr>
+				}
+				if len(addresses) == 0 {
+					for _ = range 4 {
+						<tr class="bg-white border-b dark:bg-gray-800/75 dark:border-gray-800">
+							<th scope="row" class="px-3">
+								<div class="h-2 bg-gray-200 rounded-full dark:bg-gray-800 max-w-[360px] "></div>
+							</th>
+							<td class="hidden md:table-cell px-3 md:px-6 py-4">
+								<div class="h-2 bg-gray-200 rounded-full dark:bg-gray-800 max-w-[360px] "></div>
+							</td>
+							<td class="px-3 md:px-6 py-4">
+								<div class="h-2 bg-gray-200 rounded-full dark:bg-gray-800 max-w-[360px] "></div>
+							</td>
+						</tr>
+					}
+				}
+			</tbody>
+		</table>
+		if len(addresses) == 0 {
+			<div class="absolute inset-0 flex items-center justify-center">
+				<div class="">
+					<p class="mb-2 font-normal text-gray-300 dark:text-gray-300">Please <a href="/app/addresses/create" class="font-medium underline text-primary-600 dark:text-primary-500 hover:underline no-underline">add an address</a> to get started</p>
+				</div>
+			</div>
+		}
+	</div>
+}

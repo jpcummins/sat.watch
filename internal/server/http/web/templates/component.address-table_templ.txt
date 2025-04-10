@@ -1,0 +1,18 @@
+<div class=\"relative overflow-x-auto shadow-md sm:rounded-lg\"><table class=\"w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400\"><thead class=\"text-xs text-gray-700 uppercase bg-gray-800 dark:text-gray-400\"><tr><th scope=\"col\" class=\"px-3 md:px-6 py-3\">Address</th><th scope=\"col\" class=\"px-3 md:px-6 py-3 hidden md:table-cell\"><div class=\"flex items-center\">UTXOs</div></th><th scope=\"col\" class=\"px-3 md:px-6 py-3\"><div class=\"flex items-center\">Amount</div></th></tr></thead> <tbody class=\"\">
+<tr class=\"bg-white border-b dark:bg-gray-800/75 dark:border-gray-700\"><th scope=\"row\" class=\"px-3 md:px-6 py-4 whitespace-nowrap flex items-center font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 \"><span class=\"hidden md:flex w-3 h-3 me-3 bg-green-500 rounded-full\"></span> 
+<a class=\"font-medium text-blue-600 dark:text-blue-500 hover:underline\" href=\"
+\">
+</a> <span class=\"text-gray-300 ml-2\">
+m/0/
+m/1/
+</span> <span class=\"mx-1 text-base text-gray-900 dark:text-white\">›</span> 
+<a class=\"\" href=\"
+\"><span class=\"hover:underline hidden md:inline-block\">
+</span> <span class=\"hover:underline md:hidden\">
+</span></a></th><td class=\"hidden md:table-cell px-3 md:px-6 py-4\">
+</td><td class=\"px-3 md:px-6 py-4\">
+</td></tr>
+<tr class=\"bg-white border-b dark:bg-gray-800/75 dark:border-gray-800\"><th scope=\"row\" class=\"px-3\"><div class=\"h-2 bg-gray-200 rounded-full dark:bg-gray-800 max-w-[360px] \"></div></th><td class=\"hidden md:table-cell px-3 md:px-6 py-4\"><div class=\"h-2 bg-gray-200 rounded-full dark:bg-gray-800 max-w-[360px] \"></div></td><td class=\"px-3 md:px-6 py-4\"><div class=\"h-2 bg-gray-200 rounded-full dark:bg-gray-800 max-w-[360px] \"></div></td></tr>
+</tbody></table>
+<div class=\"absolute inset-0 flex items-center justify-center\"><div class=\"\"><p class=\"mb-2 font-normal text-gray-300 dark:text-gray-300\">Please <a href=\"/app/addresses/create\" class=\"font-medium underline text-primary-600 dark:text-primary-500 hover:underline no-underline\">add an address</a> to get started</p></div></div>
+</div>

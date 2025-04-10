@@ -1,0 +1,62 @@
+package templates
+
+import (
+	"fmt"
+	"time"
+	"strconv"
+)
+
+func GetNonce(ctx context.Context) string {
+	if nonce, ok := ctx.Value("csp-nonce").(string); ok {
+		return nonce
+	}
+	return ""
+}
+
+func GetVersion(ctx context.Context) string {
+	if version, ok := ctx.Value("app-version").(string); ok {
+		return fmt.Sprintf("?v=%s", version)
+	}
+	return ""
+}
+
+func GetCurrentYear() string {
+	return strconv.Itoa(time.Now().Year())
+}
+
+templ BasicLayout(title string, scripts ...string) {
+	<!DOCTYPE html>
+	<html lang="en" class="dark">
+		<head>
+			<meta charset="utf-8"/>
+			<title>{ title }</title>
+			<link rel="apple-touch-icon" sizes="180x180" href={ fmt.Sprintf("/apple-touch-icon.png%s", GetVersion(ctx)) }/>
+			<link rel="icon" type="image/png" sizes="32x32" href={ fmt.Sprintf("/favicon-32x32.png%s", GetVersion(ctx)) }/>
+			<link rel="icon" type="image/png" sizes="16x16" href={ fmt.Sprintf("/favicon-16x16.png%s", GetVersion(ctx)) }/>
+			<link rel="manifest" href={ fmt.Sprintf("/site.webmanifest%s", GetVersion(ctx)) }/>
+			<link rel="mask-icon" href={ fmt.Sprintf("/safari-pinned-tab.svg%s", GetVersion(ctx)) } color="#5bbad5"/>
+			<meta property="og:title" content="sat.watch"/>
+			<meta property="og:description" content="Real-time blockchain monitoring and instant alerts for Bitcoin"/>
+			<meta property="og:type" content="website"/>
+			<meta property="og:url" content="https://sat.watch"/>
+			<meta name="description" content="Real-time blockchain monitoring and instant alerts for Bitcoin"/>
+			<meta name="msapplication-TileColor" content="#111827"/>
+			<meta name="theme-color" content="#111827"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta property="og:title" content="sat.watch - Real-time Bitcoin Alerts"/>
+			<meta property="og:description" content="sat.watch - Real-time Bitcoin Alerts"/>
+			<script defer nonce={ GetNonce(ctx) } src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.x.x/dist/cdn.min.js"></script>
+			<link href={ fmt.Sprintf("/static/css/tailwind.css%s", GetVersion(ctx)) } rel="stylesheet"/>
+			for _, script := range scripts {
+				<script nonce={ GetNonce(ctx) } src={ fmt.Sprintf("/static/js/%s.js%s", script, GetVersion(ctx)) }></script>
+			}
+		</head>
+		<body class="bg-gray-50 dark:bg-gray-900 flex flex-col min-h-screen">
+			<div class="hidden">{ GetVersion(ctx) }</div>
+			<div class="container mx-auto">
+				{ children... }
+			</div>
+			<script nonce={ GetNonce(ctx) } src={ fmt.Sprintf("/static/js/flowbite.js%s", GetVersion(ctx)) }></script>
+		</body>
+	</html>
+}

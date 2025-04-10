@@ -1,0 +1,17 @@
+<!doctype html><html lang=\"en\" class=\"dark\"><head><meta charset=\"utf-8\"><title>
+</title><link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"
+\"><link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"
+\"><link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"
+\"><link rel=\"manifest\" href=\"
+\"><link rel=\"mask-icon\" href=\"
+\" color=\"#5bbad5\"><meta property=\"og:title\" content=\"sat.watch\"><meta property=\"og:description\" content=\"Real-time blockchain monitoring and instant alerts for Bitcoin\"><meta property=\"og:type\" content=\"website\"><meta property=\"og:url\" content=\"https://sat.watch\"><meta name=\"description\" content=\"Real-time blockchain monitoring and instant alerts for Bitcoin\"><meta name=\"msapplication-TileColor\" content=\"#111827\"><meta name=\"theme-color\" content=\"#111827\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta property=\"og:title\" content=\"sat.watch - Real-time Bitcoin Alerts\"><meta property=\"og:description\" content=\"sat.watch - Real-time Bitcoin Alerts\"><script defer nonce=\"
+\" src=\"https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.x.x/dist/cdn.min.js\"></script><link href=\"
+\" rel=\"stylesheet\">
+<script nonce=\"
+\" src=\"
+\"></script>
+</head><body class=\"bg-gray-50 dark:bg-gray-900 flex flex-col min-h-screen\"><div class=\"hidden\">
+</div><div class=\"container mx-auto\">
+</div><script nonce=\"
+\" src=\"
+\"></script></body></html>

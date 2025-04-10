@@ -1,0 +1,77 @@
+services:
+  bitcoin:
+    image: docker.io/lncm/bitcoind:v28.0
+    volumes:
+      - bitcoin_data:/data/.bitcoin
+    restart: unless-stopped
+    command:
+      -zmqpubrawtx=tcp://0.0.0.0:28333
+      -zmqpubrawblock=tcp://0.0.0.0:28332
+      -rpcauth=${RPCAUTH}
+      -printtoconsole
+      -server=1
+      -txindex=1
+      -disablewallet=1
+      -rpcbind=0.0.0.0
+      -rpcallowip=172.16.0.0/16
+    networks:
+      satwatch_network:
+  electrs:
+    build: ./electrs
+    command: >
+      sh -c "echo 'network = \"bitcoin\"' > /tmp/config.toml &&
+             echo 'daemon_rpc_addr = \"bitcoin:8332\"' >> /tmp/config.toml &&
+             echo 'daemon_p2p_addr = \"bitcoin:8333\"' >> /tmp/config.toml &&
+             echo 'electrum_rpc_addr = \"0.0.0.0:50001\"' >> /tmp/config.toml &&
+             echo 'auth = \"${RPCUSER}:${RPCPASSWORD}\"' >> /tmp/config.toml &&
+             echo 'db_dir = \"/data\"' >> /tmp/config.toml &&
+             exec electrs --log-filters INFO --conf /tmp/config.toml"
+    volumes:
+      - electrs_data:/data
+    depends_on:
+      - bitcoin
+    restart: unless-stopped
+    networks:
+      satwatch_network:
+  db:
+    image: postgres:16.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: satwatch
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      satwatch_network:
+  satwatch:
+    build: ../
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/satwatch?sslmode=disable
+      - ELECTRUM_HOST=electrs
+      - ELECTRUM_PORT=50001
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - URL=${URL}
+      - ZMQ_HOST=bitcoin
+      - ZMQ_PORT=28333
+      - RPCHOST=http://bitcoin:8332
+      - RPCUSER=${RPCUSER}
+      - RPCPASSWORD=${RPCPASSWORD}
+    ports:
+      - "8080:8080"
+    networks:
+      satwatch_network:
+networks:
+  satwatch_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.0.0/16
+volumes:
+  pg_data: 
+  bitcoin_data:
+  electrs_data:

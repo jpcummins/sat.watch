@@ -1,0 +1,7 @@
+.ignore
+node_modules
+.env*
+!.env.example
+*prod.yml
+tmux.sh
+electrs

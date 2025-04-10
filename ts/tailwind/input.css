@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.brand {
+  background: -webkit-linear-gradient(#f59e0b, #b45309);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[x-cloak] {
+  display: none !important;
+}

@@ -1,0 +1,10 @@
+package templates
+
+templ AuthLayout(title string, scripts ...string) {
+	@BasicLayout(title, append(scripts)...) {
+		@nav()
+		<div class="container px-4 mb-20">
+			{ children... }
+		</div>
+	}
+}
