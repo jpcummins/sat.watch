@@ -45,7 +45,7 @@ services:
     networks:
       satwatch_network:
   satwatch:
-    build: ../
+    image: ghcr.io/jpcummins/sat.watch:latest
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/satwatch?sslmode=disable
