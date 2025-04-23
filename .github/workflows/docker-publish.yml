@@ -5,6 +5,12 @@ on:
     branches: ["master"]
   release:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -38,6 +44,10 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=sha,format=short
+          flavor: |
+            latest=true
+          version: |
+            ${{ github.event.inputs.version || github.ref_name }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
