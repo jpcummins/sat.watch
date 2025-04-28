@@ -21,6 +21,9 @@ WORKDIR /app
 COPY --from=builder /satwatch /app/satwatch
 COPY --from=builder /create-user /app/create-user
 
+# Copy the templates directory
+COPY --from=builder /app/internal/server/http/web /app/internal/server/http/web
+
 ENV APP_VERSION=${APP_VERSION}
 
 EXPOSE 8080
