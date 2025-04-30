@@ -24,7 +24,7 @@ type ServerDependencies struct {
 	electrumClient *electrum.Client
 	mockZmqServer  *zmq.MockZmqServer
 	email          clients.MailClient
-	config         configs.Config
+	config         *configs.Config
 	bitcoinClient  clients.BitcoinClient
 }
 
@@ -60,7 +60,7 @@ func initDependencies() (*ServerDependencies, error) {
 		return nil, errors.InternalErr(err, "Unable to initialize API client")
 	}
 
-	emailClient, err := clients.NewMailClient(api, cfg.URL, cfg.SmtpHost, cfg.SmtpPort, cfg.SmtpUser, cfg.SmtpPassword)
+	emailClient, err := clients.NewMailClient(api, cfg.URL, cfg)
 	if err != nil {
 		return nil, errors.InternalErr(err, "Unable to initialize mail client")
 	}

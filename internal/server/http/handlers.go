@@ -24,7 +24,7 @@ const sessionKey = "s"
 
 var validate *validator.Validate
 
-func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq.MockZmqServer, emailClient EmailClient, config configs.Config, bitcoinClient clients.BitcoinClient) *echo.Echo {
+func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq.MockZmqServer, emailClient EmailClient, config *configs.Config, bitcoinClient clients.BitcoinClient) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true

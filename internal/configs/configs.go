@@ -3,6 +3,7 @@ package configs
 import (
 	"context"
 	"os"
+	"sync"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/jackc/pgx/v5"
@@ -32,6 +33,8 @@ type Config struct {
 	RPCHost      string `env:"RPCHOST"`
 	RPCUser      string `env:"RPCUSER"`
 	RPCPassword  string `env:"RPCPASSWORD"`
+
+	mu sync.RWMutex
 }
 
 type dbConfig struct {
@@ -59,7 +62,7 @@ func readDBConfig(dbURL string) (dbConfig, error) {
 	return cfg, nil
 }
 
-func InitConifg(path string) (Config, error) {
+func InitConifg(path string) (*Config, error) {
 	logger := log.With().Str("module", "config").Logger()
 	logger.Info().Msg("initializing")
 	var cfg Config
@@ -106,5 +109,140 @@ func InitConifg(path string) (Config, error) {
 
 	logger.Info().Interface("config", &cfgCopy).Msg("parsed config")
 	logger.Info().Msg("finished initializing")
-	return cfg, err
+	return &cfg, err
+}
+
+// UpdateSMTPConfig updates the SMTP configuration in both the database and the Config struct
+func (c *Config) UpdateSMTPConfig(host string, port int, user string, password string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	conn, err := pgx.Connect(context.Background(), c.DatabaseUrl)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		`UPDATE config 
+		SET smtp_host = $1, 
+		    smtp_port = $2, 
+		    smtp_user = $3, 
+		    smtp_password = $4,
+		    updated_at = now()`,
+		host, port, user, password)
+	if err != nil {
+		return err
+	}
+
+	// Update the Config struct
+	c.SmtpHost = host
+	c.SmtpPort = port
+	c.SmtpUser = user
+	c.SmtpPassword = password
+
+	return nil
+}
+
+// UpdateSMTPHost updates only the SMTP host
+func (c *Config) UpdateSMTPHost(host string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	conn, err := pgx.Connect(context.Background(), c.DatabaseUrl)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		`UPDATE config 
+		SET smtp_host = $1,
+		    updated_at = now()`,
+		host)
+	if err != nil {
+		return err
+	}
+
+	c.SmtpHost = host
+	return nil
+}
+
+// UpdateSMTPPort updates only the SMTP port
+func (c *Config) UpdateSMTPPort(port int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	conn, err := pgx.Connect(context.Background(), c.DatabaseUrl)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		`UPDATE config 
+		SET smtp_port = $1,
+		    updated_at = now()`,
+		port)
+	if err != nil {
+		return err
+	}
+
+	c.SmtpPort = port
+	return nil
+}
+
+// UpdateSMTPUser updates only the SMTP user
+func (c *Config) UpdateSMTPUser(user string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	conn, err := pgx.Connect(context.Background(), c.DatabaseUrl)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		`UPDATE config 
+		SET smtp_user = $1,
+		    updated_at = now()`,
+		user)
+	if err != nil {
+		return err
+	}
+
+	c.SmtpUser = user
+	return nil
+}
+
+// UpdateSMTPPassword updates only the SMTP password
+func (c *Config) UpdateSMTPPassword(password string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	conn, err := pgx.Connect(context.Background(), c.DatabaseUrl)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(context.Background())
+
+	_, err = conn.Exec(context.Background(),
+		`UPDATE config 
+		SET smtp_password = $1,
+		    updated_at = now()`,
+		password)
+	if err != nil {
+		return err
+	}
+
+	c.SmtpPassword = password
+	return nil
+}
+
+// GetSMTPConfig returns a copy of the current SMTP configuration
+func (c *Config) GetSMTPConfig() (host string, port int, user string, password string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SmtpHost, c.SmtpPort, c.SmtpUser, c.SmtpPassword
 }

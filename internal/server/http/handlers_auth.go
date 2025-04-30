@@ -15,7 +15,7 @@ import (
 const keyUser = "user"
 
 type AuthController struct {
-	Config configs.Config
+	Config *configs.Config
 	API    *api.API
 }
 
