@@ -14,6 +14,7 @@ import (
 func main() {
 	username := flag.String("username", "", "Username for the new user")
 	password := flag.String("password", "", "Password for the new user")
+	isAdmin := flag.Bool("admin", false, "Whether the user should be an admin")
 	flag.Parse()
 
 	if *username == "" || *password == "" {
@@ -42,11 +43,15 @@ func main() {
 
 	// Insert the user
 	_, err = conn.Exec(context.Background(),
-		"INSERT INTO users (username, password_hash) VALUES ($1, $2)",
-		*username, string(hashedPassword))
+		"INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3)",
+		*username, string(hashedPassword), *isAdmin)
 	if err != nil {
 		log.Fatalf("Error creating user: %v", err)
 	}
 
-	fmt.Printf("Successfully created user: %s\n", *username)
+	adminStatus := "regular"
+	if *isAdmin {
+		adminStatus = "admin"
+	}
+	fmt.Printf("Successfully created %s user: %s\n", adminStatus, *username)
 }
