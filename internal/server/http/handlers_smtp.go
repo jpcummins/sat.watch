@@ -12,14 +12,21 @@ type SMTPController struct {
 	Config *configs.Config
 }
 
+type SMTPFormData struct {
+	Host     string `form:"host"`
+	Port     int    `form:"port"`
+	Username string `form:"username"`
+	Password string `form:"password"`
+}
+
 func (sc SMTPController) Index(c echo.Context) error {
-	return Render(c, http.StatusOK, templates.PageSettingsSmtp(sc.Config, nil))
+	return Render(c, http.StatusOK, templates.PageSettingsSmtp(sc.Config, nil, nil))
 }
 
 func (sc SMTPController) Update(c echo.Context) error {
-	return c.NoContent(http.StatusNotImplemented)
-}
-
-func (sc SMTPController) Test(c echo.Context) error {
-	return c.NoContent(http.StatusNotImplemented)
+	var formData SMTPFormData
+	if err := c.Bind(&formData); err != nil {
+		return Render(c, http.StatusBadRequest, templates.PageSettingsSmtp(sc.Config, nil, err))
+	}
+	return Render(c, http.StatusOK, templates.PageSettingsSmtp(sc.Config, nil, nil))
 }

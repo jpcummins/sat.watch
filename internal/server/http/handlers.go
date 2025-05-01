@@ -171,7 +171,6 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	smtpGroup.Use(requireAdminMiddleware)
 	smtpGroup.GET("", smtpController.Index)
 	smtpGroup.POST("", smtpController.Update)
-	smtpGroup.POST("/test", smtpController.Test)
 
 	addressController := AddressController{
 		API:            api,

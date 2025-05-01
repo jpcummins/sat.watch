@@ -6,8 +6,13 @@ import (
 	"github.com/jpcummins/satwatch/internal/configs"
 )
 
-templ PageSettingsSmtp(config *configs.Config, err error) {
-	@AuthLayout("sat.watch - SMTP Settings", "") {
+type SMTPTestResult struct {
+	Success bool
+	Error   string
+}
+
+templ PageSettingsSmtp(config *configs.Config, testResult *SMTPTestResult, err error) {
+	@AuthLayout("sat.watch - SMTP Settings") {
 		<div id="defaultModal" aria-hidden="true" class="mt-8 overflow-y-auto overflow-x-hidden justify-center items-center w-full">
 			<div class="relative w-full">
 				<div class="relative p-4 bg-white rounded-lg shadow dark:bg-gray-800 sm:p-5">
@@ -53,7 +58,6 @@ templ PageSettingsSmtp(config *configs.Config, err error) {
 									<button type="submit" class="text-white inline-flex items-center bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg px-5 py-2.5 text-center dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800">
 										Save
 									</button>
-									<button type="button" class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">Test Connection</button>
 								</div>
 							</div>
 						</div>
