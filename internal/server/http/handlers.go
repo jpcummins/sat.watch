@@ -139,8 +139,9 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	g.GET("", appController.Home)
 
 	settingsController := SettingsController{
-		API: api,
-		URL: config.URL,
+		API:    api,
+		URL:    config.URL,
+		Config: config,
 	}
 	g.GET("/settings", settingsController.Index)
 	g.POST("/settings/deleteAccount", settingsController.DeleteAccount)

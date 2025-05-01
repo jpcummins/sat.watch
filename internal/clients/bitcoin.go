@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 
@@ -91,6 +92,7 @@ func NewBitcoinClient(host string, user string, password string, gap int) (Bitco
 }
 
 func (bc BitcoinClient) request(rpcReq rpcRequest) (*json.RawMessage, error) {
+	fmt.Printf("%+v\n", rpcReq)
 	bodyBytes, err := json.Marshal(rpcReq)
 	if err != nil {
 		return nil, bc.error(
@@ -123,6 +125,7 @@ func (bc BitcoinClient) request(rpcReq rpcRequest) (*json.RawMessage, error) {
 	defer resp.Body.Close()
 
 	var rpcResp rpcResponse
+	fmt.Printf("%+v\n", resp.Body)
 	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
 		return nil, bc.error(
 			"JSON decode error",
