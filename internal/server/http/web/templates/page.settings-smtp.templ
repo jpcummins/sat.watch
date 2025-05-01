@@ -21,6 +21,7 @@ templ PageSettingsSmtp(config *configs.Config, testResult *SMTPTestResult, err e
 							SMTP Settings
 						</h3>
 						<p class="font-normal text-gray-500 dark:text-gray-400">Configure the email server settings that will be used to send notifications to all users of the site. These settings will be used for password resets, alerts, and other system notifications.</p>
+						<p class="mt-4 font-normal text-gray-500 dark:text-gray-400">SMTP settings passed in via environment variables will take precedence.</p>
 					</div>
 					if err != nil {
 						<div class="flex items-center p-4 mb-4  text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">

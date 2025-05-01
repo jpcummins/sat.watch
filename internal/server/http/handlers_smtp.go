@@ -91,5 +91,12 @@ func (sc SMTPController) Update(c echo.Context) error {
 	}
 
 	// If we get here, the connection test was successful
+	if err := sc.Config.UpdateSMTPConfig(formData.Host, formData.Port, formData.Username, formData.Password); err != nil {
+		return Render(c, http.StatusOK, templates.PageSettingsSmtp(sc.Config, &templates.SMTPTestResult{
+			Success: false,
+			Message: fmt.Sprintf("Failed to save SMTP settings: %v", err),
+		}, nil))
+	}
+
 	return c.Redirect(http.StatusSeeOther, "/app/settings")
 }
