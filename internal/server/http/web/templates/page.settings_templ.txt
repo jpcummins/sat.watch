@@ -4,7 +4,7 @@
 <span class=\"text-base text-gray-500 dark:text-gray-400\">Host: <span class=\"\">
 </span></span>
 <span class=\"text-base text-gray-500 dark:text-gray-400\">SMTP not configured</span>
-</div><a href=\"/app/settings/email/create\" class=\"inline-block py-2.5 px-5 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700\">Edit SMTP Settings</a></div></div><hr class=\"h-px my-8 bg-gray-200 border-0 dark:bg-gray-700\">
+</div><a href=\"/app/settings/smtp\" class=\"inline-block py-2.5 px-5 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700\">Edit SMTP Settings</a></div></div><hr class=\"h-px my-8 bg-gray-200 border-0 dark:bg-gray-700\">
  <h3 class=\"mt-8 text-lg font-semibold leading-none text-gray-900 md:text-lg dark:text-white\">Email</h3><div class=\"mt-2 flex flex-col md:flex-row items-start\"><div class=\"flex-none w-full md:w-80\"><p class=\"text-base text-gray-500 dark:text-gray-400\">Provide an email address to be notified of the latest Bitcoin transactions. Simply enter your email address to start receiving notifications.</p></div><div class=\"mt-8 md:mt-0 ml-0 md:ml-10 lg:ml-20\">
 <div class=\"text-white font-semibold\">
 </div><div class=\"mb-4\"><p class=\"text-base text-gray-500 dark:text-gray-400\">
