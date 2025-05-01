@@ -22,6 +22,7 @@ templ PageSettingsSmtp(config *configs.Config, testResult *SMTPTestResult, err e
 						</h3>
 						<p class="font-normal text-gray-500 dark:text-gray-400">Configure the email server settings that will be used to send notifications to all users of the site. These settings will be used for password resets, alerts, and other system notifications.</p>
 						<p class="mt-4 font-normal text-gray-500 dark:text-gray-400">SMTP settings passed in via environment variables will take precedence.</p>
+						<p class="mt-4 font-normal text-gray-500 dark:text-gray-400">To obtain SMTP credentials, you can use services like <a href="https://aws.amazon.com/ses/" class="text-blue-600 hover:underline dark:text-blue-500">Amazon SES</a>, <a href="https://resend.com/" class="text-blue-600 hover:underline dark:text-blue-500">Resend</a>, or <a href="https://www.mailersend.com/" class="text-blue-600 hover:underline dark:text-blue-500">MailerSend</a> (or others - just ask your AI friend for suggestions!).</p>
 					</div>
 					if err != nil {
 						<div class="flex items-center p-4 mb-4  text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
@@ -69,7 +70,11 @@ templ PageSettingsSmtp(config *configs.Config, testResult *SMTPTestResult, err e
 									</div>
 									<div>
 										<label for="port" class="block mb-2 font-medium text-gray-900 dark:text-white">Port</label>
-										<input type="number" name="port" id="port" value={ fmt.Sprintf("%d", config.SmtpPort) } autocomplete="off" data-1p-ignore data-lpignore="true" data-protonpass-ignore="true" class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500" placeholder="587"/>
+										if config.SmtpPort == 0 {
+											<input type="number" name="port" id="port" value="" autocomplete="off" data-1p-ignore data-lpignore="true" data-protonpass-ignore="true" class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500" placeholder="587"/>
+										} else {
+											<input type="number" name="port" id="port" value={ fmt.Sprintf("%d", config.SmtpPort) } autocomplete="off" data-1p-ignore data-lpignore="true" data-protonpass-ignore="true" class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500" placeholder="587"/>
+										}
 									</div>
 									<div>
 										<label for="username" class="block mb-2 font-medium text-gray-900 dark:text-white">Username</label>

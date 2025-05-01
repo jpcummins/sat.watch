@@ -135,7 +135,7 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	g := e.Group("/app")
 	g.Use(authMiddleware(api))
 
-	appController := AppController{api}
+	appController := AppController{api, config}
 	g.GET("", appController.Home)
 
 	settingsController := SettingsController{
@@ -174,6 +174,7 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 
 	addressController := AddressController{
 		API:            api,
+		Config:         config,
 		Gap:            config.Gap,
 		EmailClient:    emailClient,
 		ElectrumClient: electrumClient,

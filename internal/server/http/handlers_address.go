@@ -11,6 +11,7 @@ import (
 	"github.com/jpcummins/go-electrum/electrum"
 	"github.com/jpcummins/satwatch/internal/api"
 	"github.com/jpcummins/satwatch/internal/clients"
+	"github.com/jpcummins/satwatch/internal/configs"
 	"github.com/jpcummins/satwatch/internal/lib"
 	"github.com/jpcummins/satwatch/internal/server/http/web/templates"
 	"github.com/labstack/echo/v4"
@@ -22,6 +23,7 @@ type AddressController struct {
 	EmailClient    EmailClient
 	ElectrumClient *electrum.Client
 	BitcoinClient  clients.BitcoinClient
+	Config         *configs.Config
 }
 
 func (ac AddressController) Index(c echo.Context) error {
@@ -121,6 +123,11 @@ func (ac AddressController) Create(c echo.Context) error {
 			logger(c).Warn().Err(err).Msg("email parse error")
 			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Please provide an email address. Alternatively, if you don't want to provide an email address, add a webhook (Settings > Webhooks).")))
 		}
+
+		if ac.Config.SmtpHost == "" || ac.Config.SmtpPort == 0 || ac.Config.SmtpUser == "" || ac.Config.SmtpPassword == "" {
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to save address. SMTP is not configured.")))
+		}
+
 		if err := ac.API.CreateEmail(user.ID, params.Email, "", params.Pubkey); err != nil {
 			userError := "Unable to save email."
 
@@ -133,16 +140,16 @@ func (ac AddressController) Create(c echo.Context) error {
 		email, err := ac.API.GetEmailByAddress(user.ID, params.Email)
 		if err != nil {
 			logger(c).Warn().Err(err).Msg("Unable get email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to process request.")))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to get email")))
 		}
-
-		emails = []api.Email{email}
 
 		err = ac.EmailClient.SendVerification(email)
 		if err != nil {
 			logger(c).Warn().Err(err).Msg("Unable to send verification email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to process request.")))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to send verification email")))
 		}
+
+		emails = []api.Email{email}
 	}
 
 	addr := strings.TrimSpace(params.Address)

@@ -4,12 +4,14 @@ import (
 	"net/http"
 
 	"github.com/jpcummins/satwatch/internal/api"
+	"github.com/jpcummins/satwatch/internal/configs"
 	"github.com/jpcummins/satwatch/internal/server/http/web/templates"
 	"github.com/labstack/echo/v4"
 )
 
 type AppController struct {
-	API *api.API
+	API    *api.API
+	Config *configs.Config
 }
 
 func (ac AppController) Home(c echo.Context) error {
@@ -24,5 +26,5 @@ func (ac AppController) Home(c echo.Context) error {
 	webhooks, _ := ac.API.GetUserWebhooks(user.ID)
 	emails, _ := ac.API.GetUserEmails(user.ID)
 
-	return Render(c, http.StatusOK, templates.PageApp(xpubs, addresses, webhooks, emails))
+	return Render(c, http.StatusOK, templates.PageApp(xpubs, addresses, webhooks, emails, user.IsAdmin, ac.Config))
 }

@@ -25,7 +25,7 @@ type Config struct {
 	ElectrumPort int    `env:"ELECTRUM_PORT"`
 	ElectrumSSL  bool   `env:"ELECTRUM_SSL" env-default:"false"`
 	SmtpHost     string `env:"SMTP_HOST"`
-	SmtpPort     int    `env:"SMTP_PORT" env-default:"25"`
+	SmtpPort     int    `env:"SMTP_PORT"`
 	SmtpUser     string `env:"SMTP_USER"`
 	SmtpPassword string `env:"SMTP_PASSWORD"`
 	URL          string `env:"URL"`
