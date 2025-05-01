@@ -164,6 +164,15 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	g.POST("/settings/webhooks/:notification/edit", notifyController.UpdateWebhook)
 	g.POST("/settings/webhooks/:notification/delete", notifyController.DeleteWebhook)
 
+	smtpController := SMTPController{
+		Config: config,
+	}
+	smtpGroup := g.Group("/settings/smtp")
+	smtpGroup.Use(requireAdminMiddleware)
+	smtpGroup.GET("", smtpController.Index)
+	smtpGroup.POST("", smtpController.Update)
+	smtpGroup.POST("/test", smtpController.Test)
+
 	addressController := AddressController{
 		API:            api,
 		Gap:            config.Gap,

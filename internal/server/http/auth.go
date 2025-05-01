@@ -58,3 +58,13 @@ func unauthMiddleware(api *api.API) func(echo.HandlerFunc) echo.HandlerFunc {
 		}
 	}
 }
+
+func requireAdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user, ok := c.Get(keyUser).(api.User)
+		if !ok || !user.IsAdmin {
+			return c.NoContent(http.StatusUnauthorized)
+		}
+		return next(c)
+	}
+}
