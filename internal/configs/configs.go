@@ -28,6 +28,7 @@ type Config struct {
 	SmtpPort     int    `env:"SMTP_PORT"`
 	SmtpUser     string `env:"SMTP_USER"`
 	SmtpPassword string `env:"SMTP_PASSWORD"`
+	SmtpFrom     string `env:"SMTP_FROM"`
 	URL          string `env:"URL"`
 	Version      string `env:"APP_VERSION"`
 	RPCHost      string `env:"RPCHOST"`
@@ -42,6 +43,7 @@ type dbConfig struct {
 	SmtpPort     *int
 	SmtpUser     *string
 	SmtpPassword *string
+	SmtpFrom     *string
 }
 
 func readDBConfig(dbURL string) (dbConfig, error) {
@@ -53,8 +55,8 @@ func readDBConfig(dbURL string) (dbConfig, error) {
 	defer conn.Close(context.Background())
 
 	err = conn.QueryRow(context.Background(),
-		"SELECT smtp_host, smtp_port, smtp_user, smtp_password FROM config LIMIT 1").
-		Scan(&cfg.SmtpHost, &cfg.SmtpPort, &cfg.SmtpUser, &cfg.SmtpPassword)
+		"SELECT smtp_host, smtp_port, smtp_user, smtp_password, smtp_from FROM config LIMIT 1").
+		Scan(&cfg.SmtpHost, &cfg.SmtpPort, &cfg.SmtpUser, &cfg.SmtpPassword, &cfg.SmtpFrom)
 	if err != nil {
 		return cfg, err
 	}
@@ -81,7 +83,7 @@ func InitConifg(path string) (*Config, error) {
 	}
 
 	// If SMTP settings are not provided via environment variables, try to read from database
-	if cfg.SmtpHost == "" || cfg.SmtpPort == 0 || cfg.SmtpUser == "" || cfg.SmtpPassword == "" {
+	if !cfg.IsSMTPConfigured() {
 		dbCfg, err := readDBConfig(cfg.DatabaseUrl)
 		if err != nil {
 			logger.Warn().Err(err).Msg("Failed to read SMTP config from database")
@@ -98,6 +100,9 @@ func InitConifg(path string) (*Config, error) {
 			if cfg.SmtpPassword == "" && dbCfg.SmtpPassword != nil {
 				cfg.SmtpPassword = *dbCfg.SmtpPassword
 			}
+			if cfg.SmtpFrom == "" && dbCfg.SmtpFrom != nil {
+				cfg.SmtpFrom = *dbCfg.SmtpFrom
+			}
 		}
 	}
 
@@ -113,7 +118,7 @@ func InitConifg(path string) (*Config, error) {
 }
 
 // UpdateSMTPConfig updates the SMTP configuration in both the database and the Config struct
-func (c *Config) UpdateSMTPConfig(host string, port int, user string, password string) error {
+func (c *Config) UpdateSMTPConfig(host string, port int, user string, password string, from string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -129,8 +134,9 @@ func (c *Config) UpdateSMTPConfig(host string, port int, user string, password s
 		    smtp_port = $2, 
 		    smtp_user = $3, 
 		    smtp_password = $4,
+		    smtp_from = $5,
 		    updated_at = now()`,
-		host, port, user, password)
+		host, port, user, password, from)
 	if err != nil {
 		return err
 	}
@@ -140,6 +146,7 @@ func (c *Config) UpdateSMTPConfig(host string, port int, user string, password s
 	c.SmtpPort = port
 	c.SmtpUser = user
 	c.SmtpPassword = password
+	c.SmtpFrom = from
 
 	return nil
 }
@@ -245,4 +252,12 @@ func (c *Config) GetSMTPConfig() (host string, port int, user string, password s
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SmtpHost, c.SmtpPort, c.SmtpUser, c.SmtpPassword
+}
+
+// IsSMTPConfigured returns true if all required SMTP configuration fields are set
+func (c *Config) IsSMTPConfigured() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.SmtpHost != "" && c.SmtpPort != 0 && c.SmtpUser != "" && c.SmtpPassword != "" && c.SmtpFrom != ""
 }

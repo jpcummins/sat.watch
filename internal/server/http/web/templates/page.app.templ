@@ -73,7 +73,7 @@ templ showSMTPWarning(isAdmin bool) {
 
 templ PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, emails []api.Email, isAdmin bool, config *configs.Config) {
 	@AuthLayout("sat.watch - Home") {
-		if config.SmtpHost == "" || config.SmtpPort == 0 || config.SmtpUser == "" || config.SmtpPassword == "" {
+		if !config.IsSMTPConfigured() {
 			@showSMTPWarning(isAdmin)
 		} else {
 			@showUnverifiedWarning(getUnverifiedEmail(emails))

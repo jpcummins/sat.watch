@@ -22,6 +22,7 @@ type SMTPFormData struct {
 	Port     int    `form:"port"`
 	Username string `form:"username"`
 	Password string `form:"password"`
+	From     string `form:"from"`
 }
 
 func (sc SMTPController) Index(c echo.Context) error {
@@ -91,7 +92,7 @@ func (sc SMTPController) Update(c echo.Context) error {
 	}
 
 	// If we get here, the connection test was successful
-	if err := sc.Config.UpdateSMTPConfig(formData.Host, formData.Port, formData.Username, formData.Password); err != nil {
+	if err := sc.Config.UpdateSMTPConfig(formData.Host, formData.Port, formData.Username, formData.Password, formData.From); err != nil {
 		return Render(c, http.StatusOK, templates.PageSettingsSmtp(sc.Config, &templates.SMTPTestResult{
 			Success: false,
 			Message: fmt.Sprintf("Failed to save SMTP settings: %v", err),

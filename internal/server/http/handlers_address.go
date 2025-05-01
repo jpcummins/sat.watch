@@ -124,7 +124,7 @@ func (ac AddressController) Create(c echo.Context) error {
 			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Please provide an email address. Alternatively, if you don't want to provide an email address, add a webhook (Settings > Webhooks).")))
 		}
 
-		if ac.Config.SmtpHost == "" || ac.Config.SmtpPort == 0 || ac.Config.SmtpUser == "" || ac.Config.SmtpPassword == "" {
+		if !ac.Config.IsSMTPConfigured() {
 			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to save address. SMTP is not configured.")))
 		}
 

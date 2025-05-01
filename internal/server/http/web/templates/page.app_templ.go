@@ -154,7 +154,7 @@ func PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, 
 				templ_7745c5c3_Buffer = templ.GetBuffer()
 				defer templ.ReleaseBuffer(templ_7745c5c3_Buffer)
 			}
-			if config.SmtpHost == "" || config.SmtpPort == 0 || config.SmtpUser == "" || config.SmtpPassword == "" {
+			if !config.IsSMTPConfigured() {
 				templ_7745c5c3_Err = showSMTPWarning(isAdmin).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

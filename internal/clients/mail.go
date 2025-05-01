@@ -83,7 +83,7 @@ func (m MailClient) SendVerification(email api.Email) error {
 		m.log.Error().Str("path", t).Str("id", email.ID).Err(err).Msg("Failed to render email template")
 	}
 
-	return m.sendEmail("verify@sat.watch", email, "Verify your email for sat.watch", result.String())
+	return m.sendEmail(m.config.SmtpFrom, email, "Verify your email for sat.watch", result.String())
 }
 
 func (m MailClient) SendNotification(email api.Email, data NotificationData, address api.Address) {
@@ -135,7 +135,7 @@ func (m MailClient) SendNotification(email api.Email, data NotificationData, add
 		m.log.Error().Str("path", t).Err(err).Msg("Failed to render email template")
 	}
 
-	err = m.sendEmail("alert@sat.watch", email, "New Transaction Alert", result.String())
+	err = m.sendEmail(m.config.SmtpFrom, email, "New Transaction Alert", result.String())
 	if err != nil {
 		m.log.Err(err).Msg("Unable to send mail")
 	}
