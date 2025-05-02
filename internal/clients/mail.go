@@ -73,12 +73,16 @@ func (m MailClient) SendVerification(email api.Email) error {
 		Year  string
 	}
 
-	var result bytes.Buffer
-	err = tmpl.Execute(&result, templateData{
+	td := templateData{
 		Email: email,
 		Host:  m.url,
 		Year:  strconv.Itoa(time.Now().Year()),
-	})
+	}
+
+	m.log.Debug().Any("data", td).Msg("Rendering verification template")
+
+	var result bytes.Buffer
+	err = tmpl.Execute(&result, td)
 	if err != nil {
 		m.log.Error().Str("path", t).Str("id", email.ID).Err(err).Msg("Failed to render email template")
 	}
@@ -176,7 +180,7 @@ func (m MailClient) sendEmailUnencrypted(from string, to api.Email, subject stri
 		return err
 	}
 
-	m.log.Debug().Msg("Sending email")
+	m.log.Debug().Str("body", htmlBody).Msg("Sending email")
 	if err := c.DialAndSend(msg); err != nil {
 		m.log.Error().Err(err).Msg("Unable to send message")
 	} else {
