@@ -16,6 +16,7 @@ import (
 
 	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/jpcummins/satwatch/internal/api"
+	"github.com/jpcummins/satwatch/internal/configs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/wneessen/go-mail"
@@ -35,21 +36,15 @@ type MailClient struct {
 	log      zerolog.Logger
 	dbLogger DbLogger
 	url      string
-	host     string
-	port     int
-	user     string
-	password string
+	config   *configs.Config
 }
 
-func NewMailClient(dbLogger DbLogger, url string, smtpHost string, smtpPort int, smtpUser string, smtpPassword string) (MailClient, error) {
+func NewMailClient(dbLogger DbLogger, url string, config *configs.Config) (MailClient, error) {
 	return MailClient{
 		log:      log.With().Str("module", "mailer").Logger(),
 		dbLogger: dbLogger,
 		url:      url,
-		host:     smtpHost,
-		port:     smtpPort,
-		user:     smtpUser,
-		password: smtpPassword,
+		config:   config,
 	}, nil
 }
 
@@ -78,17 +73,19 @@ func (m MailClient) SendVerification(email api.Email) error {
 		Year  string
 	}
 
-	var result bytes.Buffer
-	err = tmpl.Execute(&result, templateData{
+	td := templateData{
 		Email: email,
 		Host:  m.url,
 		Year:  strconv.Itoa(time.Now().Year()),
-	})
+	}
+
+	var result bytes.Buffer
+	err = tmpl.Execute(&result, td)
 	if err != nil {
 		m.log.Error().Str("path", t).Str("id", email.ID).Err(err).Msg("Failed to render email template")
 	}
 
-	return m.sendEmail("verify@sat.watch", email, "Verify your email for sat.watch", result.String())
+	return m.sendEmail(m.config.SmtpFrom, email, "Verify your email for sat.watch", result.String())
 }
 
 func (m MailClient) SendNotification(email api.Email, data NotificationData, address api.Address) {
@@ -140,7 +137,7 @@ func (m MailClient) SendNotification(email api.Email, data NotificationData, add
 		m.log.Error().Str("path", t).Err(err).Msg("Failed to render email template")
 	}
 
-	err = m.sendEmail("alert@sat.watch", email, "New Transaction Alert", result.String())
+	err = m.sendEmail(m.config.SmtpFrom, email, "New Transaction Alert", result.String())
 	if err != nil {
 		m.log.Err(err).Msg("Unable to send mail")
 	}
@@ -175,7 +172,8 @@ func (m MailClient) sendEmailUnencrypted(from string, to api.Email, subject stri
 	msg.Subject(subject)
 	msg.SetBodyString(mail.TypeTextHTML, htmlBody)
 
-	c, err := mail.NewClient(m.host, mail.WithPort(m.port), mail.WithSMTPAuth(mail.SMTPAuthPlain), mail.WithUsername(m.user), mail.WithPassword(m.password))
+	host, port, user, password := m.config.GetSMTPConfig()
+	c, err := mail.NewClient(host, mail.WithPort(port), mail.WithSMTPAuth(mail.SMTPAuthPlain), mail.WithUsername(user), mail.WithPassword(password))
 	if err != nil {
 		return err
 	}
@@ -205,12 +203,13 @@ func (m MailClient) sendEmailEncrypted(from string, to api.Email, subject string
 
 	msg := buildEmail(from, to.Email, subject, boundary, mimeBody)
 
-	serverAddr := fmt.Sprintf("%s:%d", m.host, m.port)
+	host, port, user, password := m.config.GetSMTPConfig()
+	serverAddr := fmt.Sprintf("%s:%d", host, port)
 
-	auth := smtp.PlainAuth("", m.user, m.password, m.host)
+	auth := smtp.PlainAuth("", user, password, host)
 
 	tlsConfig := &tls.Config{
-		ServerName: m.host,
+		ServerName: host,
 	}
 
 	c, err := smtp.Dial(serverAddr)

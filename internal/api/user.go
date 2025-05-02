@@ -13,6 +13,7 @@ type User struct {
 	api          *API
 	Username     string
 	PasswordHash string `db:"password_hash"`
+	IsAdmin      bool   `db:"is_admin"`
 }
 
 func (api *API) CreateUser() (User, error) {
@@ -40,7 +41,8 @@ func (api *API) GetUser(userId string) (User, error) {
 		    created_at, 
 		    updated_at, 
 		    username,
-		    password_hash
+		    password_hash,
+		    is_admin
 		FROM 
 		    users 
 		WHERE 
@@ -61,7 +63,8 @@ func (api *API) GetUserByUsername(username string) (User, error) {
 		    created_at, 
 		    updated_at, 
 		    username,
-		    password_hash
+		    password_hash,
+		    is_admin
 		FROM 
 		    users 
 		WHERE 

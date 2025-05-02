@@ -23,6 +23,7 @@ COPY --from=builder /create-user /app/create-user
 
 # Copy the templates directory
 COPY --from=builder /app/internal/server/http/web /app/internal/server/http/web
+COPY --from=builder /app/internal/clients/templates /app/internal/clients/templates
 
 ENV APP_VERSION=${APP_VERSION}
 

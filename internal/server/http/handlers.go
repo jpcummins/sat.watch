@@ -24,7 +24,7 @@ const sessionKey = "s"
 
 var validate *validator.Validate
 
-func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq.MockZmqServer, emailClient EmailClient, config configs.Config, bitcoinClient clients.BitcoinClient) *echo.Echo {
+func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq.MockZmqServer, emailClient EmailClient, config *configs.Config, bitcoinClient clients.BitcoinClient) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -135,12 +135,13 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	g := e.Group("/app")
 	g.Use(authMiddleware(api))
 
-	appController := AppController{api}
+	appController := AppController{api, config}
 	g.GET("", appController.Home)
 
 	settingsController := SettingsController{
-		API: api,
-		URL: config.URL,
+		API:    api,
+		URL:    config.URL,
+		Config: config,
 	}
 	g.GET("/settings", settingsController.Index)
 	g.POST("/settings/deleteAccount", settingsController.DeleteAccount)
@@ -163,8 +164,17 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	g.POST("/settings/webhooks/:notification/edit", notifyController.UpdateWebhook)
 	g.POST("/settings/webhooks/:notification/delete", notifyController.DeleteWebhook)
 
+	smtpController := SMTPController{
+		Config: config,
+	}
+	smtpGroup := g.Group("/settings/smtp")
+	smtpGroup.Use(requireAdminMiddleware)
+	smtpGroup.GET("", smtpController.Index)
+	smtpGroup.POST("", smtpController.Update)
+
 	addressController := AddressController{
 		API:            api,
+		Config:         config,
 		Gap:            config.Gap,
 		EmailClient:    emailClient,
 		ElectrumClient: electrumClient,

@@ -8,7 +8,7 @@ import (
 	"github.com/jpcummins/satwatch/internal/server/zmq"
 )
 
-func Init(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq.MockZmqServer, emailClient EmailClient, config configs.Config, bitcoinClient clients.BitcoinClient) {
+func Init(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq.MockZmqServer, emailClient EmailClient, config *configs.Config, bitcoinClient clients.BitcoinClient) {
 	e := NewRouter(api, electrumClient, mockZmqServer, emailClient, config, bitcoinClient)
 	host := ":" + config.Port
 	e.Logger.Fatal(e.Start(host))

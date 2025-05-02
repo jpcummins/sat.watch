@@ -40,7 +40,7 @@ type UtxoMonitor interface {
 	GetUtxoStream() <-chan interface{}
 }
 
-func Init(config configs.Config, utxoMonitor UtxoMonitor) (*API, error) {
+func Init(config *configs.Config, utxoMonitor UtxoMonitor) (*API, error) {
 	logger := log.With().Str("module", "api").Logger()
 	logger.Info().Msg("initializing")
 

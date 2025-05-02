@@ -5,14 +5,16 @@ import (
 	"net/http"
 
 	"github.com/jpcummins/satwatch/internal/api"
+	"github.com/jpcummins/satwatch/internal/configs"
 	"github.com/jpcummins/satwatch/internal/server/http/web/templates"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 )
 
 type SettingsController struct {
-	API *api.API
-	URL string
+	API    *api.API
+	URL    string
+	Config *configs.Config
 }
 
 func (sc SettingsController) Index(c echo.Context) error {
@@ -25,15 +27,15 @@ func (sc SettingsController) Index(c echo.Context) error {
 	webhooks, err := sc.API.GetUserWebhooks(user.ID)
 	if err != nil {
 		logger(c).Error().Err(err).Msg("webhooks not found")
-		return Render(c, http.StatusInternalServerError, templates.PageSettings(user, nil, nil, errors.New("Internal error")))
+		return Render(c, http.StatusInternalServerError, templates.PageSettings(user, nil, nil, sc.Config, errors.New("Internal error")))
 	}
 
 	emails, err := sc.API.GetUserEmails(user.ID)
 	if err != nil {
 		logger(c).Error().Err(err).Msg("emails not found")
-		return Render(c, http.StatusInternalServerError, templates.PageSettings(user, webhooks, nil, errors.New("Internal error")))
+		return Render(c, http.StatusInternalServerError, templates.PageSettings(user, webhooks, nil, sc.Config, errors.New("Internal error")))
 	}
-	return Render(c, http.StatusOK, templates.PageSettings(user, webhooks, emails, nil))
+	return Render(c, http.StatusOK, templates.PageSettings(user, webhooks, emails, sc.Config, nil))
 }
 
 func (sc SettingsController) DeleteAccount(c echo.Context) error {

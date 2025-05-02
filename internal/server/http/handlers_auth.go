@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/jpcummins/satwatch/internal/api"
 	"github.com/jpcummins/satwatch/internal/configs"
@@ -15,7 +16,7 @@ import (
 const keyUser = "user"
 
 type AuthController struct {
-	Config configs.Config
+	Config *configs.Config
 	API    *api.API
 }
 
@@ -56,6 +57,11 @@ func (ac AuthController) Login(c echo.Context) error {
 	if err := sess.Save(c.Request(), c.Response()); err != nil {
 		logger(c).Err(err).Msg("unable to save session")
 		return Render(c, http.StatusInternalServerError, templates.PageLogin(errors.New("An unexpected error occurred")))
+	}
+
+	redirect := c.QueryParam("redirect")
+	if strings.HasPrefix(redirect, "/app/settings/email/") {
+		return c.Redirect(http.StatusSeeOther, redirect)
 	}
 
 	return c.Redirect(http.StatusSeeOther, "/app")

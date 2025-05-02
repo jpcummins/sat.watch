@@ -12,7 +12,7 @@ import (
 	"github.com/jpcummins/satwatch/internal/configs"
 )
 
-func NewElectrumClient(cfg configs.Config) (*electrum.Client, error) {
+func NewElectrumClient(cfg *configs.Config) (*electrum.Client, error) {
 	log.Info().Msg("initializing electrum")
 	ctx := context.TODO()
 	host := cfg.ElectrumHost + ":" + strconv.Itoa(cfg.ElectrumPort)
