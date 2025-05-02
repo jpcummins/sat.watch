@@ -79,8 +79,6 @@ func (m MailClient) SendVerification(email api.Email) error {
 		Year:  strconv.Itoa(time.Now().Year()),
 	}
 
-	m.log.Debug().Any("data", td).Msg("Rendering verification template")
-
 	var result bytes.Buffer
 	err = tmpl.Execute(&result, td)
 	if err != nil {
@@ -180,7 +178,7 @@ func (m MailClient) sendEmailUnencrypted(from string, to api.Email, subject stri
 		return err
 	}
 
-	m.log.Debug().Str("body", htmlBody).Msg("Sending email")
+	m.log.Debug().Msg("Sending email")
 	if err := c.DialAndSend(msg); err != nil {
 		m.log.Error().Err(err).Msg("Unable to send message")
 	} else {

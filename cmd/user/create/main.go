@@ -23,11 +23,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(*password) < 6 {
-		fmt.Println("Error: password must be at least 6 characters long")
-		os.Exit(1)
-	}
-
 	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*password), bcrypt.DefaultCost)
 	if err != nil {
