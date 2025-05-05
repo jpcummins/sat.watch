@@ -12,15 +12,15 @@ import (
 	"github.com/jpcummins/go-electrum/electrum"
 	"github.com/jpcummins/satwatch/internal/configs"
 
-	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/rs/zerolog/log"
 )
 
 type API struct {
-	db        *pgxpool.Pool
+	db        DB
 	addresses []Address
 	mu        sync.Mutex
 	monitor   UtxoMonitor
+	config    *configs.Config
 }
 
 type Model struct {
@@ -52,16 +52,17 @@ func Init(config *configs.Config, utxoMonitor UtxoMonitor) (*API, error) {
 		return &api, errors.InternalErr(err, "Unable to create pg pool")
 	}
 
-	api.db = db
+	api.db = &pgxPoolWrapper{db}
 	api.monitor = utxoMonitor
+	api.config = config
 
-	err = db.Ping(ctx)
+	err = api.db.Ping(ctx)
 	if err != nil {
 		return &api, errors.InternalErr(err, "Unable to connect to db")
 	}
 
 	var addresses []Address
-	if err := pgxscan.Select(ctx, db, &addresses, "SELECT id, created_at, updated_at, user_id, xpub_id, address, scripthash, name, is_external, address_index FROM addresses WHERE deleted_at IS NULL"); err != nil {
+	if err := api.db.Select(ctx, &addresses, "SELECT id, created_at, updated_at, user_id, xpub_id, address, scripthash, name, is_external, address_index FROM addresses WHERE deleted_at IS NULL"); err != nil {
 		logger.Err(err)
 		return &api, errors.InternalErrf(err, "Unable to query db %s", config.DatabaseUrl)
 	}

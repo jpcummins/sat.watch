@@ -182,6 +182,7 @@ func (ac AddressController) Create(c echo.Context) error {
 				Address:      address,
 				IsExternal:   true,
 				AddressIndex: i,
+				Name:         &params.Description,
 			}
 			addresses[i*2+1] = api.Address{
 				Model:        api.Model{ID: uuid.New().String()},
@@ -190,6 +191,7 @@ func (ac AddressController) Create(c echo.Context) error {
 				Address:      changeAddress,
 				IsExternal:   false,
 				AddressIndex: i,
+				Name:         &params.Description,
 			}
 		}
 
@@ -231,14 +233,18 @@ func (ac AddressController) Create(c echo.Context) error {
 	}
 
 	logger(c).Debug().Msg("Address is standard (not descriptor, not xpub)")
-	var address api.Address
-	if err := c.Bind(&address); err != nil {
-		logger(c).Warn().Err(err).Msg("Unable to parse address")
-		return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to parse address")))
+	// Construct address manually using parsed params
+	address := api.Address{
+		Model:   api.Model{ID: uuid.New().String()},
+		UserID:  user.ID,
+		Address: addr,
+		Name:    nil, // Default to nil
+	}
+	// Set Name only if description was provided
+	if params.Description != "" {
+		address.Name = &params.Description
 	}
 
-	address.ID = uuid.New().String()
-	address.UserID = user.ID
 	err = ac.API.CreateAddress(address)
 	if err != nil {
 		logger(c).Error().Err(err).Msg("Unable to save address.")
@@ -260,6 +266,41 @@ func (ac AddressController) Delete(c echo.Context) error {
 		logger(c).Error().Err(err).Msg("Unable to delete address.")
 	}
 	return c.Redirect(http.StatusSeeOther, "/app")
+}
+
+// Status returns UTXO counts and balance sums for a batch of addresses belonging to the current user.
+func (ac AddressController) Status(c echo.Context) error {
+	user, ok := c.Get(keyUser).(api.User)
+	if !ok {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+	idsParam := c.QueryParam("ids")
+	if idsParam == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ids query param is required"})
+	}
+	ids := strings.Split(idsParam, ",")
+	type resp struct {
+		ID         string `json:"id"`
+		UtxoCount  int    `json:"utxoCount"`
+		BalanceSum uint64 `json:"balance"`
+	}
+	var out []resp
+	for _, id := range ids {
+		addr, err := ac.API.GetAddressById(id, user.ID)
+		if err != nil || addr == nil || addr.UTXOs == nil {
+			continue
+		}
+		var sum uint64
+		for _, utxo := range addr.UTXOs {
+			sum += utxo.Value
+		}
+		out = append(out, resp{
+			ID:         id,
+			UtxoCount:  len(addr.UTXOs),
+			BalanceSum: sum,
+		})
+	}
+	return c.JSON(http.StatusOK, out)
 }
 
 func hasValidPrefix(s string) bool {

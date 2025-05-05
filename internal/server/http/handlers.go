@@ -184,6 +184,7 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	g.GET("/addresses/create", addressController.New)
 	g.POST("/addresses/create", addressController.Create)
 	g.POST("/addresses/:address/delete", addressController.Delete)
+	g.GET("/addresses/status", addressController.Status)
 
 	xpubController := XpubController{
 		API: api,

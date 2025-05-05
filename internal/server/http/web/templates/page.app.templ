@@ -72,7 +72,7 @@ templ showSMTPWarning(isAdmin bool) {
 }
 
 templ PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, emails []api.Email, isAdmin bool, config *configs.Config) {
-	@AuthLayout("sat.watch - Home") {
+	@AuthLayout("sat.watch - Home", "addressPoll") {
 		if !config.IsSMTPConfigured() {
 			@showSMTPWarning(isAdmin)
 		} else {

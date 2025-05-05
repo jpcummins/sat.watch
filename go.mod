@@ -7,7 +7,6 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/ProtonMail/gopenpgp/v3 v3.1.2
 	github.com/a-h/templ v0.2.778
 	github.com/bnkamalesh/errors v0.11.1

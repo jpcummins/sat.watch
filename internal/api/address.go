@@ -51,7 +51,6 @@ func (api *API) CreateAddress(addresses ...Address) error {
 	defer api.mu.Unlock()
 	api.addresses = append(api.addresses, addresses...)
 
-	// enqueue UTXO scans now that addresses are in-memory
 	for _, addr := range addresses {
 		api.monitor.EnqueueScan(addr.Scripthash)
 	}
