@@ -40,8 +40,6 @@ func (api *API) CreateAddress(addresses ...Address) error {
 			address.Name,
 			address.IsExternal,
 			address.AddressIndex)
-
-		api.monitor.EnqueueScan(scripthash)
 	}
 
 	err := api.db.SendBatch(context.Background(), batch).Close()
@@ -52,6 +50,11 @@ func (api *API) CreateAddress(addresses ...Address) error {
 	api.mu.Lock()
 	defer api.mu.Unlock()
 	api.addresses = append(api.addresses, addresses...)
+
+	for _, addr := range addresses {
+		api.monitor.EnqueueScan(addr.Scripthash)
+	}
+
 	return nil
 }
 

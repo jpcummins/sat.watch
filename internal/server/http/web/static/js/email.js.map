@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../../../../../ts/src/email.ts"],
+  "sourcesContent": ["document.addEventListener('alpine:init', () => {\n  Alpine.data('email', () => ({\n    advanced: {\n      show: false,\n\n      toggle() {\n        this.advanced.show = !this.advanced.show;\n      },\n    },\n  }))\n})\n\n"],
+  "mappings": "MAAA,SAAS,iBAAiB,cAAe,IAAM,CAC7C,OAAO,KAAK,QAAS,KAAO,CAC1B,SAAU,CACR,KAAM,GAEN,QAAS,CACP,KAAK,SAAS,KAAO,CAAC,KAAK,SAAS,IACtC,CACF,CACF,EAAE,CACJ,CAAC",
+  "names": []
+}
