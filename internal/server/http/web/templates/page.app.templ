@@ -79,8 +79,13 @@ templ PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook,
 			@showUnverifiedWarning(getUnverifiedEmail(emails))
 		}
 		<div class="flex items-baseline justify-between mb-4">
-			<h2 class="mt-8 text-xl font-semibold leading-none text-gray-900 md:text-2xl dark:text-white">Monitoring { fmt.Sprintf("%d", len(addresses)) } addresses</h2>
-			<a href="/app/addresses/create" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">Add Address</a>
+			<div class="flex flex-col">
+				<h2 class="mt-8 text-xl font-semibold leading-none text-gray-900 md:text-2xl dark:text-white">Monitoring { fmt.Sprintf("%d", len(addresses)) } addresses</h2>
+				<p class="mt-1 font-mono text-sm text-gray-500 dark:text-gray-400">{ getAmountMonitored(addresses) } sats</p>
+			</div>
+			<div>
+				<a href="/app/addresses/create" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">Add Address</a>
+			</div>
 		</div>
 		@ComponentAddressTable(addresses, xpubs)
 	}

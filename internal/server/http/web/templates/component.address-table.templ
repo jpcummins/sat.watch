@@ -38,6 +38,15 @@ func getShortenedXpub(xpub string) string {
 	return xpub[0:6] + "…" + xpub[len(xpub)-3:]
 }
 
+func getXpubDisplayName(id string, xpubs []api.Xpub) *string {
+	for _, xpub := range xpubs {
+		if xpub.ID == id {
+			return xpub.Name
+		}
+	}
+	return nil
+}
+
 templ ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) {
 	<div class="relative overflow-x-auto shadow-md sm:rounded-lg">
 		<table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
@@ -53,7 +62,7 @@ templ ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) {
 					</th>
 					<th scope="col" class="px-3 md:px-6 py-3">
 						<div class="flex items-center">
-							Amount
+							Balance
 						</div>
 					</th>
 				</tr>
@@ -61,28 +70,56 @@ templ ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) {
 			<tbody class="">
 				for _, address := range addresses {
 					<tr class="bg-white border-b dark:bg-gray-800/75 dark:border-gray-700">
-						<th scope="row" class="px-3 md:px-6 py-4 whitespace-nowrap flex items-center font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 ">
-							<span class="hidden md:flex w-3 h-3 me-3 bg-green-500 rounded-full"></span>
-							if address.XpubID != nil {
-								<a class="font-medium text-blue-600 dark:text-blue-500 hover:underline" href={ templ.URL(fmt.Sprintf("/app/xpubs/%s", *address.XpubID)) }>{ getXpubName(*address.XpubID, xpubs) }</a>
-								<span class="text-gray-300 ml-2">
-									if address.IsExternal {
-										m/0/{ fmt.Sprintf("%d", address.AddressIndex) }
+						<th scope="row" class="px-3 md:px-6 py-4 whitespace-nowrap flex items-start">
+							<span class="hidden md:flex w-3 h-3 me-3 bg-green-500 rounded-full self-start mt-1"></span>
+							<div>
+								<div>
+									if address.XpubID != nil {
+										<div class="flex flex-col md:flex-row items-baseline gap-2">
+											<div class="flex flex-col min-w-0">
+												<span class="font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 whitespace-nowrap">
+													<a class="font-medium text-blue-600 dark:text-blue-500 hover:underline" href={ templ.URL(fmt.Sprintf("/app/xpubs/%s", *address.XpubID)) }>{ getXpubName(*address.XpubID, xpubs) }</a>
+													<span class="text-gray-300 ml-2">
+														if address.IsExternal {
+															m/0/{ fmt.Sprintf("%d", address.AddressIndex) }
+														} else {
+															m/1/{ fmt.Sprintf("%d", address.AddressIndex) }
+														}
+													</span>
+												</span>
+												if getXpubDisplayName(*address.XpubID, xpubs) != nil {
+													<p class="font-normal truncate text-gray-400">{ *getXpubDisplayName(*address.XpubID, xpubs) }</p>
+												}
+											</div>
+											<div class="flex items-center mx-2 text-base text-gray-900 dark:text-white select-none">›</div>
+											<div class="flex flex-col min-w-0">
+												<a class="font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 hover:underline whitespace-nowrap overflow-hidden text-ellipsis" href={ templ.URL(getAddressUrl(address)) }>
+													<span class="hover:underline hidden md:inline-block">{ address.Address }</span>
+													<span class="hover:underline md:hidden">{ getShortenedAddress(address) }</span>
+												</a>
+												if address.Name != nil {
+													<p class="font-normal truncate text-gray-400">{ *address.Name }</p>
+												}
+											</div>
+										</div>
 									} else {
-										m/1/{ fmt.Sprintf("%d", address.AddressIndex) }
+										<span class="font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500">
+											<a class="" href={ templ.URL(getAddressUrl(address)) }>
+												<span class="hover:underline hidden md:inline-block">{ address.Address }</span>
+												<span class="hover:underline md:hidden">{ getShortenedAddress(address) }</span>
+											</a>
+										</span>
+										if address.Name != nil {
+											<p class="font-normal truncate text-gray-400">{ *address.Name }</p>
+										}
 									}
-								</span>
-								<span class="mx-1 text-base text-gray-900 dark:text-white">›</span>
-							}
-							<a class="" href={ templ.URL(getAddressUrl(address)) }>
-								<span class="hover:underline hidden md:inline-block">{ address.Address }</span>
-								<span class="hover:underline md:hidden">{ getShortenedAddress(address) }</span>
-							</a>
+								</div>
+							</div>
 						</th>
-						<td class="hidden md:table-cell px-3 md:px-6 py-4">
+						<td class="hidden md:table-cell px-3 md:px-6 py-4 align-top">
 							{ strconv.Itoa(len(address.UTXOs)) }
 						</td>
-						<td class="px-3 md:px-6 py-4">
+						<td class="px-3 md:px-6 py-4 align-top">
 							{ getUtxoSum(address) }
 						</td>
 					</tr>
