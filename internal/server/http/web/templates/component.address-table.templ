@@ -75,7 +75,7 @@ templ ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) {
 							<div>
 								<div>
 									if address.XpubID != nil {
-										<div class="flex flex-row items-baseline gap-2">
+										<div class="flex flex-col md:flex-row items-baseline gap-2">
 											<div class="flex flex-col min-w-0">
 												<span class="font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 whitespace-nowrap">
 													<a class="font-medium text-blue-600 dark:text-blue-500 hover:underline" href={ templ.URL(fmt.Sprintf("/app/xpubs/%s", *address.XpubID)) }>{ getXpubName(*address.XpubID, xpubs) }</a>

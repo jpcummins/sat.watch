@@ -1,6 +1,6 @@
 <div class=\"relative overflow-x-auto shadow-md sm:rounded-lg\"><table class=\"w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400\"><thead class=\"text-xs text-gray-700 uppercase bg-gray-800 dark:text-gray-400\"><tr><th scope=\"col\" class=\"px-3 md:px-6 py-3\">Address</th><th scope=\"col\" class=\"px-3 md:px-6 py-3 hidden md:table-cell\"><div class=\"flex items-center\">UTXOs</div></th><th scope=\"col\" class=\"px-3 md:px-6 py-3\"><div class=\"flex items-center\">Balance</div></th></tr></thead> <tbody class=\"\">
 <tr class=\"bg-white border-b dark:bg-gray-800/75 dark:border-gray-700\"><th scope=\"row\" class=\"px-3 md:px-6 py-4 whitespace-nowrap flex items-start\"><span class=\"hidden md:flex w-3 h-3 me-3 bg-green-500 rounded-full self-start mt-1\"></span><div><div>
-<div class=\"flex flex-row items-baseline gap-2\"><div class=\"flex flex-col min-w-0\"><span class=\"font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 whitespace-nowrap\"><a class=\"font-medium text-blue-600 dark:text-blue-500 hover:underline\" href=\"
+<div class=\"flex flex-col md:flex-row items-baseline gap-2\"><div class=\"flex flex-col min-w-0\"><span class=\"font-medium text-blue-600 font-mono tracking-wider dark:text-blue-500 whitespace-nowrap\"><a class=\"font-medium text-blue-600 dark:text-blue-500 hover:underline\" href=\"
 \">
 </a> <span class=\"text-gray-300 ml-2\">
 m/0/
