@@ -233,14 +233,12 @@ func (ac AddressController) Create(c echo.Context) error {
 	}
 
 	logger(c).Debug().Msg("Address is standard (not descriptor, not xpub)")
-	// Construct address manually using parsed params
 	address := api.Address{
 		Model:   api.Model{ID: uuid.New().String()},
 		UserID:  user.ID,
 		Address: addr,
 		Name:    nil, // Default to nil
 	}
-	// Set Name only if description was provided
 	if params.Description != "" {
 		address.Name = &params.Description
 	}
@@ -268,7 +266,6 @@ func (ac AddressController) Delete(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, "/app")
 }
 
-// Status returns UTXO counts and balance sums for a batch of addresses belonging to the current user.
 func (ac AddressController) Status(c echo.Context) error {
 	user, ok := c.Get(keyUser).(api.User)
 	if !ok {

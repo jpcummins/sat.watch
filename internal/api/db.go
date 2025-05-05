@@ -9,24 +9,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// DB defines the database operations needed by the API service.
 type DB interface {
 	Ping(ctx context.Context) error
 	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
-	Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	Select(ctx context.Context, dest any, query string, args ...any) error
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	// Add other methods if needed by other API functions
 }
 
-// pgxPoolWrapper adapts a *pgxpool.Pool to the DB interface.
 type pgxPoolWrapper struct {
 	*pgxpool.Pool
 }
 
-// Select implements the DB interface using pgxscan.
-func (w *pgxPoolWrapper) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	// Use the embedded Pool for pgxscan
+func (w *pgxPoolWrapper) Select(ctx context.Context, dest any, query string, args ...any) error {
 	return pgxscan.Select(ctx, w.Pool, dest, query, args...)
 }

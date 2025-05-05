@@ -1,5 +1,3 @@
-// Create a polling component to hydrate address balances via AlpineJS
-
 declare const Alpine: any;
 
 interface AddressStatus {
@@ -8,15 +6,12 @@ interface AddressStatus {
   balance: number;
 }
 
-// Register Alpine component on alpine:init for CSP compliance
 document.addEventListener('alpine:init', () => {
 	Alpine.data('addressPoll', () => ({
 		pending: [] as string[],
 
 		init(): void {
-			// Use setTimeout to ensure DOM is fully rendered, especially table rows
 			setTimeout(() => {
-				// Refine selector: target pending cells first
 				const pendingCells = document.querySelectorAll<HTMLElement>('td[data-pending="true"]');
 				this.pending = Array.from(pendingCells)
 					.map(td => td.closest('tr')?.dataset.addressId!) // Get ID from parent row
@@ -25,7 +20,7 @@ document.addEventListener('alpine:init', () => {
 
 				this.poll();
 				setInterval(() => this.poll(), 5000);
-			}, 0); // Defer execution slightly
+			}, 0);
 		},
 
 		async poll(): Promise<void> {
@@ -40,9 +35,8 @@ document.addEventListener('alpine:init', () => {
 			if (!res.ok) return;
 
 			const updates = (await res.json()) as AddressStatus[];
-			// Add check to ensure updates is an array before calling forEach
 			if (!Array.isArray(updates)) {
-				return; // Stop processing this poll cycle
+				return;
 			}
 
 			updates.forEach(u => {
@@ -58,7 +52,6 @@ document.addEventListener('alpine:init', () => {
 				balTd.dataset.pending  = 'false';
 			});
 
-			// remove finished IDs
 			this.pending = this.pending.filter(id => !updates.some(u => u.id === id));
 		}
 	}));
