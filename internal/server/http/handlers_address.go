@@ -182,7 +182,6 @@ func (ac AddressController) Create(c echo.Context) error {
 				Address:      address,
 				IsExternal:   true,
 				AddressIndex: i,
-				Name:         &params.Description,
 			}
 			addresses[i*2+1] = api.Address{
 				Model:        api.Model{ID: uuid.New().String()},
@@ -191,7 +190,6 @@ func (ac AddressController) Create(c echo.Context) error {
 				Address:      changeAddress,
 				IsExternal:   false,
 				AddressIndex: i,
-				Name:         &params.Description,
 			}
 		}
 

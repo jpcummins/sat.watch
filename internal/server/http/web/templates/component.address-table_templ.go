@@ -15,7 +15,6 @@ import (
 	"github.com/jpcummins/satwatch/internal/api"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
-	"strconv"
 )
 
 func getAddressUrl(address api.Address) string {
@@ -33,6 +32,11 @@ func getUtxoSum(address api.Address) string {
 	}
 	p := message.NewPrinter(language.English)
 	return p.Sprintf("%d", amount)
+}
+
+func getUtxoCount(address api.Address) string {
+	p := message.NewPrinter(language.English)
+	return p.Sprintf("%d", len(address.UTXOs))
 }
 
 func getXpubName(id string, xpubs []api.Xpub) string {
@@ -82,7 +86,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(address.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 72, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 76, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -109,7 +113,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(getXpubName(*address.XpubID, xpubs))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 81, Col: 188}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 85, Col: 188}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -127,7 +131,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", address.AddressIndex))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 84, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 88, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -141,7 +145,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", address.AddressIndex))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 86, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 90, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
@@ -160,7 +164,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(*getXpubDisplayName(*address.XpubID, xpubs))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 91, Col: 104}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 95, Col: 104}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -187,7 +191,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(address.Address)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 97, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 101, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -200,7 +204,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(getShortenedAddress(address))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 98, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 102, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -218,7 +222,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(*address.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 101, Col: 74}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 105, Col: 74}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -250,7 +254,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 				var templ_7745c5c3_Var13 string
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(address.Address)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 108, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 112, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -263,7 +267,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(getShortenedAddress(address))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 109, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 113, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -281,7 +285,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(*address.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 113, Col: 72}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 117, Col: 72}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -308,9 +312,9 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(address.UTXOs)))
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(getUtxoCount(address))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 140, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 144, Col: 31}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -323,7 +327,7 @@ func ComponentAddressTable(addresses []api.Address, xpubs []api.Xpub) templ.Comp
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(getUtxoSum(address))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 143, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/component.address-table.templ`, Line: 147, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
