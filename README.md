@@ -4,6 +4,8 @@
 
 This is the open-source, self-hosted version of sat.watch. If you prefer a hosted solution with additional features, a commercial version is available at [https://sat.watch](https://sat.watch).
 
+![sat.watch app dashboard](https://sat.watch/static/screenshots/1.1.5-5.png "sat.watch app dashboard")
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
