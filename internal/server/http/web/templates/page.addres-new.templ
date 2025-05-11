@@ -2,8 +2,9 @@ package templates
 
 import "github.com/jpcummins/satwatch/internal/api"
 
-templ PageAddressNew(emails []api.Email, err error) {
+templ PageAddressNew(emails []api.Email, webhooks []api.Webhook, err error) {
 	@AuthLayout("sat.watch - New Address", "email") {
+		@ComponentConfigurationWarning(webhooks, emails)
 		<div id="defaultModal" aria-hidden="true" class="mt-8 overflow-y-auto overflow-x-hidden justify-center items-center w-full">
 			<div class="relative w-full">
 				<div class="relative p-4 bg-white rounded-lg shadow dark:bg-gray-800 sm:p-5">

@@ -90,7 +90,12 @@ func (ac AddressController) New(c echo.Context) error {
 		logger(c).Error().Err(err).Msg("GetUserEmails lookup failed")
 	}
 
-	return Render(c, http.StatusOK, templates.PageAddressNew(emails, err))
+	webhooks, err := ac.API.GetUserWebhooks(user.ID)
+	if err != nil {
+		logger(c).Error().Err(err).Msg("GetUserWebhooks lookup failed")
+	}
+
+	return Render(c, http.StatusOK, templates.PageAddressNew(emails, webhooks, err))
 }
 
 func (ac AddressController) Create(c echo.Context) error {
@@ -105,6 +110,11 @@ func (ac AddressController) Create(c echo.Context) error {
 		logger(c).Error().Err(err).Msg("GetUserEmails lookup failed")
 	}
 
+	webhooks, err := ac.API.GetUserWebhooks(user.ID)
+	if err != nil {
+		logger(c).Error().Err(err).Msg("GetUserWebhooks lookup failed")
+	}
+
 	type FormParams struct {
 		Address     string `form:"address"`
 		Description string `form:"description"`
@@ -115,17 +125,17 @@ func (ac AddressController) Create(c echo.Context) error {
 	var params FormParams
 	if err := c.Bind(&params); err != nil {
 		logger(c).Warn().Err(err).Msg("Unable to parse")
-		return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to process request.")))
+		return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to process request.")))
 	}
 
 	if len(emails) == 0 {
 		if err := validate.Var(params.Email, "required,email"); err != nil {
 			logger(c).Warn().Err(err).Msg("email parse error")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Please provide an email address. Alternatively, if you don't want to provide an email address, add a webhook (Settings > Webhooks).")))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Please provide an email address. Alternatively, if you don't want to provide an email address, add a webhook (Settings > Webhooks).")))
 		}
 
 		if !ac.Config.IsSMTPConfigured() {
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to save address. SMTP is not configured.")))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to save address. SMTP is not configured.")))
 		}
 
 		if err := ac.API.CreateEmail(user.ID, params.Email, "", params.Pubkey); err != nil {
@@ -135,18 +145,18 @@ func (ac AddressController) Create(c echo.Context) error {
 				userError = "Invalid pubkey"
 			}
 			logger(c).Warn().Err(err).Msg("Unable to create email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New(userError)))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New(userError)))
 		}
 		email, err := ac.API.GetEmailByAddress(user.ID, params.Email)
 		if err != nil {
 			logger(c).Warn().Err(err).Msg("Unable get email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to get email")))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to get email")))
 		}
 
 		err = ac.EmailClient.SendVerification(email)
 		if err != nil {
 			logger(c).Warn().Err(err).Msg("Unable to send verification email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Unable to send verification email")))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to send verification email")))
 		}
 
 		emails = []api.Email{email}
@@ -158,7 +168,7 @@ func (ac AddressController) Create(c echo.Context) error {
 		xpub, err := ac.API.CreateXpub(user.ID, addr, &params.Description, ac.Gap)
 		if err != nil {
 			logger(c).Warn().Err(err).Msg("unable to save xpub")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Internal error")))
+			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Internal error")))
 		}
 
 		addresses := make([]api.Address, ac.Gap*2)
@@ -166,13 +176,13 @@ func (ac AddressController) Create(c echo.Context) error {
 			address, err := lib.GetAddressFromExtPubKey(addr, true, i)
 			if err != nil {
 				logger(c).Warn().Err(err).Msg("unable to parse pubkey")
-				return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Internal error")))
+				return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Internal error")))
 			}
 
 			changeAddress, err := lib.GetAddressFromExtPubKey(addr, false, i)
 			if err != nil {
 				logger(c).Warn().Err(err).Msg("unable to parse change pubkey")
-				return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, errors.New("Internal error")))
+				return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Internal error")))
 			}
 
 			addresses[i*2] = api.Address{
@@ -195,7 +205,7 @@ func (ac AddressController) Create(c echo.Context) error {
 
 		if err := ac.API.CreateAddress(addresses...); err != nil {
 			logger(c).Error().Err(err).Msg("unable to save address")
-			return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, errors.New("Internal error")))
+			return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, webhooks, errors.New("Internal error")))
 		}
 
 		return c.Redirect(http.StatusSeeOther, "/app")
@@ -204,9 +214,9 @@ func (ac AddressController) Create(c echo.Context) error {
 	addressResp, err := ac.BitcoinClient.GetAddressesFromDescriptor(addr)
 	if err != nil {
 		if customError, ok := err.(lib.Error); ok {
-			return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, customError.DisplayError()))
+			return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, webhooks, customError.DisplayError()))
 		}
-		return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, errors.New("Internal error")))
+		return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, webhooks, errors.New("Internal error")))
 	}
 
 	if len(addressResp) > 0 {
@@ -224,7 +234,7 @@ func (ac AddressController) Create(c echo.Context) error {
 
 		if err := ac.API.CreateAddress(addresses...); err != nil {
 			logger(c).Error().Err(err).Any("addresses", addresses).Msg("unable to save address")
-			return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, errors.New("Internal error")))
+			return Render(c, http.StatusInternalServerError, templates.PageAddressNew(emails, webhooks, errors.New("Internal error")))
 		}
 
 		return c.Redirect(http.StatusSeeOther, "/app")
@@ -244,7 +254,7 @@ func (ac AddressController) Create(c echo.Context) error {
 	err = ac.API.CreateAddress(address)
 	if err != nil {
 		logger(c).Error().Err(err).Msg("Unable to save address.")
-		return Render(c, http.StatusFound, templates.PageAddressNew(emails, errors.New("Unable to save address.")))
+		return Render(c, http.StatusFound, templates.PageAddressNew(emails, webhooks, errors.New("Unable to save address.")))
 	}
 
 	return c.Redirect(http.StatusSeeOther, "/app")
