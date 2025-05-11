@@ -26,5 +26,5 @@ func (ac AppController) Home(c echo.Context) error {
 	webhooks, _ := ac.API.GetUserWebhooks(user.ID)
 	emails, _ := ac.API.GetUserEmails(user.ID)
 
-	return Render(c, http.StatusOK, templates.PageApp(xpubs, addresses, webhooks, emails, user.IsAdmin, ac.Config))
+	return Render(c, http.StatusOK, templates.PageApp(xpubs, addresses, webhooks, emails, ac.Config))
 }
