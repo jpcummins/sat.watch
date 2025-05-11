@@ -117,7 +117,6 @@ func InitConifg(path string) (*Config, error) {
 	return &cfg, err
 }
 
-// UpdateSMTPConfig updates the SMTP configuration in both the database and the Config struct
 func (c *Config) UpdateSMTPConfig(host string, port int, user string, password string, from string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -141,7 +140,6 @@ func (c *Config) UpdateSMTPConfig(host string, port int, user string, password s
 		return err
 	}
 
-	// Update the Config struct
 	c.SmtpHost = host
 	c.SmtpPort = port
 	c.SmtpUser = user
@@ -151,7 +149,6 @@ func (c *Config) UpdateSMTPConfig(host string, port int, user string, password s
 	return nil
 }
 
-// UpdateSMTPHost updates only the SMTP host
 func (c *Config) UpdateSMTPHost(host string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -175,7 +172,6 @@ func (c *Config) UpdateSMTPHost(host string) error {
 	return nil
 }
 
-// UpdateSMTPPort updates only the SMTP port
 func (c *Config) UpdateSMTPPort(port int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -199,7 +195,6 @@ func (c *Config) UpdateSMTPPort(port int) error {
 	return nil
 }
 
-// UpdateSMTPUser updates only the SMTP user
 func (c *Config) UpdateSMTPUser(user string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -223,7 +218,6 @@ func (c *Config) UpdateSMTPUser(user string) error {
 	return nil
 }
 
-// UpdateSMTPPassword updates only the SMTP password
 func (c *Config) UpdateSMTPPassword(password string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -247,14 +241,12 @@ func (c *Config) UpdateSMTPPassword(password string) error {
 	return nil
 }
 
-// GetSMTPConfig returns a copy of the current SMTP configuration
 func (c *Config) GetSMTPConfig() (host string, port int, user string, password string) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SmtpHost, c.SmtpPort, c.SmtpUser, c.SmtpPassword
 }
 
-// IsSMTPConfigured returns true if all required SMTP configuration fields are set
 func (c *Config) IsSMTPConfigured() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
