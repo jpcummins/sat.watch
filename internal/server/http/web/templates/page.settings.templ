@@ -15,14 +15,10 @@ templ PageSettings(user api.User, webhooks []api.Webhook, emails []api.Email, co
 					<p class="text-base text-gray-500 dark:text-gray-400">Adminitration settings that apply to all accounts on sat.watch.</p>
 				</div>
 				<div class="mt-8 md:mt-0 ml-0 md:ml-10 lg:ml-20">
-					<h4 class="font-semibold leading-none text-gray-900 dark:text-white mb-2">SMTP Settings</h4>
-					<div class="mb-4">
-						if config.SmtpHost != "" && config.SmtpPort > 0 && config.SmtpUser != "" && config.SmtpPassword != "" {
-								<span class="text-base text-gray-500 dark:text-gray-400">Host: <span class="">{ config.SmtpHost }</span></span>
-						} else {
-								<span class="text-base text-gray-500 dark:text-gray-400">SMTP not configured</span>
-						}
-					</div>
+					if config.IsSMTPConfigured() == true {
+						<h4 class="font-semibold leading-none text-gray-900 dark:text-white mb-2">SMTP Settings</h4>
+						<span class="text-base text-gray-500 dark:text-gray-400">Host: <span class="">{ config.SmtpHost }</span></span>
+					}
 					<a href="/app/settings/smtp" class="inline-block py-2.5 px-5 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">Edit SMTP Settings</a>
 				</div>
 			</div>
@@ -54,7 +50,18 @@ templ PageSettings(user api.User, webhooks []api.Webhook, emails []api.Email, co
 						</p>
 					</div>
 				}
-				<a href="/app/settings/email/create" class="inline-block py-2.5 px-5 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">Add Email</a>
+				if config.IsSMTPConfigured() == true {
+					<a href="/app/settings/email/create" class="inline-block py-2.5 px-5 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">Add Email</a>
+				} else {
+					<div class="flex items-center mb-4 text-yellow-300" role="alert">
+						<svg class="flex-shrink-0 w-4 h-4 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+							<path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z"></path>
+						</svg>
+						<span class="sr-only">Info</span>
+						<div class="text-sm font-medium">SMTP must be configured first.</div>
+					</div>
+					<button disabled class="inline-block py-2.5 px-5 me-2 text-sm font-medium text-gray-400 bg-gray-100 rounded-lg border border-gray-200 cursor-not-allowed dark:bg-gray-800 dark:text-gray-500 dark:border-gray-600">Add Email</button>
+				}
 			</div>
 		</div>
 		<hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700"/>

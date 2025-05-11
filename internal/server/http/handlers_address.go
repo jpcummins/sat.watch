@@ -118,48 +118,12 @@ func (ac AddressController) Create(c echo.Context) error {
 	type FormParams struct {
 		Address     string `form:"address"`
 		Description string `form:"description"`
-		Email       string `form:"email"`
-		Pubkey      string `form:"pubkey"`
 	}
 
 	var params FormParams
 	if err := c.Bind(&params); err != nil {
 		logger(c).Warn().Err(err).Msg("Unable to parse")
 		return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to process request.")))
-	}
-
-	if len(emails) == 0 {
-		if err := validate.Var(params.Email, "required,email"); err != nil {
-			logger(c).Warn().Err(err).Msg("email parse error")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Please provide an email address. Alternatively, if you don't want to provide an email address, add a webhook (Settings > Webhooks).")))
-		}
-
-		if !ac.Config.IsSMTPConfigured() {
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to save address. SMTP is not configured.")))
-		}
-
-		if err := ac.API.CreateEmail(user.ID, params.Email, "", params.Pubkey); err != nil {
-			userError := "Unable to save email."
-
-			if err.Error() == "Invalid Pubkey" {
-				userError = "Invalid pubkey"
-			}
-			logger(c).Warn().Err(err).Msg("Unable to create email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New(userError)))
-		}
-		email, err := ac.API.GetEmailByAddress(user.ID, params.Email)
-		if err != nil {
-			logger(c).Warn().Err(err).Msg("Unable get email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to get email")))
-		}
-
-		err = ac.EmailClient.SendVerification(email)
-		if err != nil {
-			logger(c).Warn().Err(err).Msg("Unable to send verification email")
-			return Render(c, http.StatusUnprocessableEntity, templates.PageAddressNew(emails, webhooks, errors.New("Unable to send verification email")))
-		}
-
-		emails = []api.Email{email}
 	}
 
 	addr := strings.TrimSpace(params.Address)
