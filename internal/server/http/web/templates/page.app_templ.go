@@ -30,15 +30,6 @@ func getAmountMonitored(addresses []api.Address) string {
 	return p.Sprintf("%d", amount)
 }
 
-func hasVerifiedEmail(emails []api.Email) bool {
-	for _, email := range emails {
-		if email.IsVerified == true {
-			return true
-		}
-	}
-	return false
-}
-
 func PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, emails []api.Email, config *configs.Config) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, templ_7745c5c3_W io.Writer) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templ_7745c5c3_W.(*bytes.Buffer)
@@ -58,7 +49,7 @@ func PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, 
 				templ_7745c5c3_Buffer = templ.GetBuffer()
 				defer templ.ReleaseBuffer(templ_7745c5c3_Buffer)
 			}
-			templ_7745c5c3_Err = CheckConfigurationWarning(webhooks, emails).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ComponentConfigurationWarning(webhooks, emails).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -66,44 +57,29 @@ func PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if len(webhooks) == 0 && len(emails) == 0 {
-				templ_7745c5c3_Err = NoNotificationsWarning().Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else if hasVerifiedEmail(emails) == false {
-				templ_7745c5c3_Err = UnverifiedEmailWarning(emails).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templ.WriteWatchModeString(templ_7745c5c3_Buffer, 2)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(addresses)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/page.app.templ`, Line: 42, Col: 144}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/page.app.templ`, Line: 28, Col: 144}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templ.WriteWatchModeString(templ_7745c5c3_Buffer, 3)
+			templ_7745c5c3_Err = templ.WriteWatchModeString(templ_7745c5c3_Buffer, 2)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(getAmountMonitored(addresses))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/page.app.templ`, Line: 43, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/page.app.templ`, Line: 29, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templ.WriteWatchModeString(templ_7745c5c3_Buffer, 4)
+			templ_7745c5c3_Err = templ.WriteWatchModeString(templ_7745c5c3_Buffer, 3)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -14,7 +14,16 @@ import (
 	"github.com/jpcummins/satwatch/internal/api"
 )
 
-func CheckConfigurationWarning(webhooks []api.Webhook, emails []api.Email) templ.Component {
+func hasVerifiedEmail(emails []api.Email) bool {
+	for _, email := range emails {
+		if email.IsVerified == true {
+			return true
+		}
+	}
+	return false
+}
+
+func ComponentConfigurationWarning(webhooks []api.Webhook, emails []api.Email) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, templ_7745c5c3_W io.Writer) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templ_7745c5c3_W.(*bytes.Buffer)
 		if !templ_7745c5c3_IsBuffer {

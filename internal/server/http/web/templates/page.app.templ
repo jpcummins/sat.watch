@@ -20,23 +20,9 @@ func getAmountMonitored(addresses []api.Address) string {
 	return p.Sprintf("%d", amount)
 }
 
-func hasVerifiedEmail(emails []api.Email) bool {
-	for _, email := range emails {
-		if email.IsVerified == true {
-			return true
-		}
-	}
-	return false
-}
-
 templ PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, emails []api.Email, config *configs.Config) {
 	@AuthLayout("sat.watch - Home", "addressPoll") {
-		@CheckConfigurationWarning(webhooks, emails)
-		if len(webhooks) == 0 && len(emails) == 0 {
-			@NoNotificationsWarning()
-		} else if hasVerifiedEmail(emails) == false {
-			@UnverifiedEmailWarning(emails)
-		}
+		@ComponentConfigurationWarning(webhooks, emails)
 		<div class="flex items-baseline justify-between mb-4">
 			<div class="flex flex-col">
 				<h2 class="mt-8 text-xl font-semibold leading-none text-gray-900 md:text-2xl dark:text-white">Monitoring { fmt.Sprintf("%d", len(addresses)) } addresses</h2>

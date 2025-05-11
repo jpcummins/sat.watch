@@ -58,7 +58,7 @@ func TestCheckConfigurationWarning(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Render the template
 			var buf bytes.Buffer
-			err := CheckConfigurationWarning(tt.webhooks, tt.emails).Render(context.Background(), &buf)
+			err := ComponentConfigurationWarning(tt.webhooks, tt.emails).Render(context.Background(), &buf)
 			assert.NoError(t, err, "Template should render without error")
 			html := buf.String()
 
