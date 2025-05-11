@@ -1,0 +1,13 @@
+package templates
+
+import (
+	"github.com/jpcummins/satwatch/internal/api"
+)
+
+templ CheckConfigurationWarning(webhooks []api.Webhook, emails []api.Email) {
+	if len(webhooks) == 0 && len(emails) == 0 {
+		@NoNotificationsWarning()
+	} else if hasVerifiedEmail(emails) == false {
+		@UnverifiedEmailWarning(emails)
+	}
+} 

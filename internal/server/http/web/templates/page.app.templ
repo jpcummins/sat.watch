@@ -29,9 +29,9 @@ func hasVerifiedEmail(emails []api.Email) bool {
 	return false
 }
 
-
 templ PageApp(xpubs []api.Xpub, addresses []api.Address, webhooks []api.Webhook, emails []api.Email, config *configs.Config) {
 	@AuthLayout("sat.watch - Home", "addressPoll") {
+		@CheckConfigurationWarning(webhooks, emails)
 		if len(webhooks) == 0 && len(emails) == 0 {
 			@NoNotificationsWarning()
 		} else if hasVerifiedEmail(emails) == false {
