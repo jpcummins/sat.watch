@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -15,6 +16,7 @@ func main() {
 	username := flag.String("username", "", "Username for the new user")
 	password := flag.String("password", "", "Password for the new user")
 	isAdmin := flag.Bool("admin", false, "Whether the user should be an admin")
+	idempotent := flag.Bool("idempotent", false, "Supresses error if the user already exists.")
 	flag.Parse()
 
 	if *username == "" || *password == "" {
@@ -40,7 +42,14 @@ func main() {
 	_, err = conn.Exec(context.Background(),
 		"INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3)",
 		*username, string(hashedPassword), *isAdmin)
+
 	if err != nil {
+		// 23505 is the postgres error code for duplicate record
+		if *idempotent && strings.Contains(err.Error(), "(SQLSTATE 23505)") {
+			fmt.Printf("User '%s' already exists. No changes made.\n", *username)
+			return
+		}
+
 		log.Fatalf("Error creating user: %v", err)
 	}
 
