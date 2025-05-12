@@ -33,9 +33,9 @@ func NewRouter(api *api.API, electrumClient *electrum.Client, mockZmqServer *zmq
 	cookieStore := sessions.NewCookieStore(hash[:64])
 	cookieStore.Options = &sessions.Options{
 		Path:     "/",
-		MaxAge:   0,
+		MaxAge:   30 * 24 * 60 * 60, // 30 days in seconds
 		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	}
 	e.Use(session.Middleware(cookieStore))
 	e.Use(middleware.RequestID())

@@ -17,7 +17,7 @@ templ PageSettings(user api.User, webhooks []api.Webhook, emails []api.Email, co
 				<div class="mt-8 md:mt-0 ml-0 md:ml-10 lg:ml-20">
 					if config.IsSMTPConfigured() == true {
 						<h4 class="font-semibold leading-none text-gray-900 dark:text-white mb-2">SMTP Settings</h4>
-						<span class="text-base text-gray-500 dark:text-gray-400">Host: <span class="">{ config.SmtpHost }</span></span>
+						<div class="mb-4 text-base text-gray-500 dark:text-gray-400">Host: <span class="">{ config.SmtpHost }</span></div>
 					}
 					<a href="/app/settings/smtp" class="inline-block py-2.5 px-5 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">Edit SMTP Settings</a>
 				</div>

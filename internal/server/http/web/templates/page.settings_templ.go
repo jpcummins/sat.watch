@@ -63,7 +63,7 @@ func PageSettings(user api.User, webhooks []api.Webhook, emails []api.Email, con
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(config.SmtpHost)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/page.settings.templ`, Line: 20, Col: 101}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/http/web/templates/page.settings.templ`, Line: 20, Col: 105}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
