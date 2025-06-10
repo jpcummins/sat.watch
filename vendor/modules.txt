@@ -74,8 +74,8 @@ github.com/btcsuite/btcd/chaincfg/chainhash
 # github.com/btcsuite/btclog v0.0.0-20241017175713-3428138b75c7
 ## explicit; go 1.17.0
 github.com/btcsuite/btclog
-# github.com/cloudflare/circl v1.3.7
-## explicit; go 1.19
+# github.com/cloudflare/circl v1.6.1
+## explicit; go 1.22.0
 github.com/cloudflare/circl/dh/x25519
 github.com/cloudflare/circl/dh/x448
 github.com/cloudflare/circl/ecc/goldilocks
@@ -211,8 +211,6 @@ github.com/mattn/go-isatty
 # github.com/mfridman/interpolate v0.0.2
 ## explicit; go 1.19
 github.com/mfridman/interpolate
-# github.com/pashagolub/pgxmock/v3 v3.4.0
-## explicit; go 1.21
 # github.com/patrickmn/go-cache v2.1.0+incompatible
 ## explicit
 github.com/patrickmn/go-cache
@@ -273,6 +271,8 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
+golang.org/x/crypto/cryptobyte
+golang.org/x/crypto/cryptobyte/asn1
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ripemd160
