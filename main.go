@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"embed"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/bnkamalesh/errors"
 	_ "github.com/lib/pq"
@@ -118,6 +123,21 @@ func main() {
 		log.Fatal().Err(err).Msg("App initialization failed.")
 	}
 
-	log.Info().Msg("starting webserver")
-	http.Init(deps.api, deps.electrumClient, deps.mockZmqServer, deps.email, deps.config, deps.bitcoinClient)
+	echoInstance, err := http.Init(deps.api, deps.electrumClient, deps.mockZmqServer, deps.email, deps.config, deps.bitcoinClient)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Webserver initialization failed.")
+	}
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Info().Msg("graceful shutdown initiated")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := echoInstance.Shutdown(ctx); err != nil {
+		log.Fatal().Err(err).Msg("Server forced to shutdown.")
+	}
+	log.Info().Msg("graceful shutdown complete")
 }
