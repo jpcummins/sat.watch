@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
@@ -99,11 +98,9 @@ func InitTxMonitor(host string, port int, addressApi AddressAPI, electrumClient 
 	monitor := TxMonitor{}
 	internalTxStream := make(chan []string)
 
+	done := make(chan bool, 1)
 	go watchRawTx(logger, internalTxStream, &monitor, addressApi, electrumClient)
-	done := make(chan bool)
-	defer close(done)
 	err := zmq.Subscribe("rawtx", internalTxStream, done)
-	<-done
 
 	logger.Info().Msg("finished initializing tx monitor")
 	return &monitor, err
@@ -153,14 +150,6 @@ func findMatchingOutputs(tx *wire.MsgTx, addressApi AddressAPI, logger zerolog.L
 	}
 
 	return matchedAddresses, amount
-}
-
-func addressesToStrings(addresses []btcutil.Address) []string {
-	result := make([]string, len(addresses))
-	for i, addr := range addresses {
-		result[i] = addr.String()
-	}
-	return result
 }
 
 // checkSentFunds checks if the transaction spends from any watched addresses.
