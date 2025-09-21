@@ -33,10 +33,10 @@ Alternative manual installation steps:
 
 
 ```bash
-git clone https://github.com/jpcummins/satwatch
-cd satwatch
+git clone https://github.com/jpcummins/sat.watch
+cd sat.watch
 go build .
-go build -o user-create cmd/user/create/main.go
+go build -o create-user cmd/user/create/main.go
 ```
 
 
@@ -80,7 +80,7 @@ The recommended way to run sat.watch is using Docker, which provides a complete 
 **Create a new user account**:
 
 ```bash
-./user-create -username your_username -password your_password
+./create-user -username your_username -password your_password
 ```
 
 **Start the server**:
