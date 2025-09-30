@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2023 The go-mail Authors
+// SPDX-FileCopyrightText: The go-mail Authors
 //
 // SPDX-License-Identifier: MIT
 
@@ -24,6 +24,7 @@ type Part struct {
 	encoding    Encoding
 	isDeleted   bool
 	writeFunc   func(io.Writer) (int64, error)
+	smime       bool
 }
 
 // GetContent executes the WriteFunc of the Part and returns the content as a byte slice.
@@ -146,6 +147,16 @@ func (p *Part) SetDescription(description string) {
 	p.description = description
 }
 
+// SetIsSMIMESigned sets the flag for signing the Part with S/MIME.
+//
+// This function updates the S/MIME signing flag for the Part.
+//
+// Parameters:
+//   - smime: A boolean indicating whether the Part should be signed with S/MIME.
+func (p *Part) SetIsSMIMESigned(smime bool) {
+	p.smime = smime
+}
+
 // SetWriteFunc overrides the WriteFunc of the Part.
 //
 // This function sets a new WriteFunc for the Part, replacing the existing one. The WriteFunc
@@ -211,5 +222,17 @@ func WithPartEncoding(encoding Encoding) PartOption {
 func WithPartContentDescription(description string) PartOption {
 	return func(p *Part) {
 		p.description = description
+	}
+}
+
+// WithSMIMESigning enables the S/MIME signing flag for a Part.
+//
+// This function provides a PartOption that overrides the S/MIME signing flag to enable signing.
+//
+// Returns:
+//   - A PartOption that sets the S/MIME signing flag to true.
+func WithSMIMESigning() PartOption {
+	return func(p *Part) {
+		p.smime = true
 	}
 }

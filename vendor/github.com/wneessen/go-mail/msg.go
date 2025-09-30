@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2023 The go-mail Authors
+// SPDX-FileCopyrightText: The go-mail Authors
 //
 // SPDX-License-Identifier: MIT
 
@@ -7,11 +7,17 @@ package mail
 import (
 	"bytes"
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
 	"embed"
 	"errors"
 	"fmt"
 	ht "html/template"
 	"io"
+	"io/fs"
 	"mime"
 	"net/mail"
 	"os"
@@ -110,7 +116,11 @@ type Msg struct {
 	// representing header values.
 	genHeader map[Header][]string
 
-	// isDelivered indicates wether the Msg has been delivered.
+	// headerCount is an indicate for how many headers have been written during the mail rendering process.
+	// This count can be helpful to identify where the mail header ends and the mail body starts
+	headerCount int
+
+	// isDelivered indicates whether the Msg has been delivered.
 	isDelivered bool
 
 	// middlewares is a slice of Middleware used for modifying or handling messages before they are processed.
@@ -120,6 +130,10 @@ type Msg struct {
 
 	// mimever represents the MIME version used in a Msg.
 	mimever MIMEVersion
+
+	// multiPartBoundary holds the rendered boundary strings for consistent boundary rendering
+	// in case a Msg is rendered several times
+	multiPartBoundary map[MIMEType]string
 
 	// parts is a slice that holds pointers to Part structures, which represent different parts of a Msg.
 	parts []*Part
@@ -133,6 +147,10 @@ type Msg struct {
 	// different Content-Type settings in the msgWriter.
 	pgptype PGPType
 
+	// serverResponse holds the response from the sending server after the mail has been
+	// successfully queued
+	serverResponse string
+
 	// sendError represents an error encountered during the process of sending a Msg during the
 	// Client.Send operation.
 	//
@@ -144,6 +162,9 @@ type Msg struct {
 	//
 	// This can be useful in scenarios where headers are conditionally passed based on receipt - i. e. SMTP proxies.
 	noDefaultUserAgent bool
+
+	// sMIME holds a SMIME type to sign a Msg using S/MIME
+	sMIME *SMIME
 }
 
 // SendmailPath is the default system path to the sendmail binary - at least on standard Unix-like OS.
@@ -170,12 +191,13 @@ type MsgOption func(*Msg)
 //   - https://datatracker.ietf.org/doc/html/rfc5321
 func NewMsg(opts ...MsgOption) *Msg {
 	msg := &Msg{
-		addrHeader:    make(map[AddrHeader][]*mail.Address),
-		charset:       CharsetUTF8,
-		encoding:      EncodingQP,
-		genHeader:     make(map[Header][]string),
-		preformHeader: make(map[Header]string),
-		mimever:       MIME10,
+		addrHeader:        make(map[AddrHeader][]*mail.Address),
+		charset:           CharsetUTF8,
+		encoding:          EncodingQP,
+		genHeader:         make(map[Header][]string),
+		preformHeader:     make(map[Header]string),
+		multiPartBoundary: make(map[MIMEType]string),
+		mimever:           MIME10,
 	}
 
 	// Override defaults with optionally provided MsgOption functions.
@@ -260,9 +282,10 @@ func WithMIMEVersion(version MIMEVersion) MsgOption {
 // WithBoundary sets the boundary of a Msg to the provided string value during its creation or
 // initialization.
 //
-// Note that by default, random MIME boundaries are created. This option should only be used if
-// a specific boundary is required for the email message. Using a predefined boundary can be
-// helpful when constructing multipart messages with specific formatting or content separation.
+// NOTE: By default, random MIME boundaries are created. This option should only be used if
+// a specific boundary is required for the email message. Using a predefined boundary will only
+// work with messages that hold a single multipart part. Using a predefined boundary with several
+// multipart parts will render the mail unreadable to the mail client.
 //
 // Parameters:
 //   - boundary: The string value that specifies the desired boundary for the Msg.
@@ -365,10 +388,12 @@ func (m *Msg) SetEncoding(encoding Encoding) {
 //
 // This method allows you to specify a custom boundary string for the MIME message. The
 // boundary is used to separate different parts of the message, especially when dealing
-// with multipart messages. By default, the Msg generates random MIME boundaries. This
-// function should only be used if you have a specific boundary requirement for the
-// message. Ensure that the boundary value does not conflict with any content within the
-// message to avoid parsing errors.
+// with multipart messages.
+//
+// NOTE: By default, random MIME boundaries are created. This option should only be used if
+// a specific boundary is required for the email message. Using a predefined boundary will only
+// work with messages that hold a single multipart part. Using a predefined boundary with several
+// multipart parts will render the mail unreadable to the mail client.
 //
 // Parameters:
 //   - boundary: The string value representing the boundary to set for the Msg, used in
@@ -542,6 +567,9 @@ func (m *Msg) SetGenHeaderPreformatted(header Header, value string) {
 //   - values: One or more string values representing the email addresses to associate with
 //     the specified header.
 //
+// Returns:
+//   - An error if parsing the address according to RFC 5322 fails
+//
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.4
 func (m *Msg) SetAddrHeader(header AddrHeader, values ...string) error {
@@ -567,6 +595,45 @@ func (m *Msg) SetAddrHeader(header AddrHeader, values ...string) error {
 	return nil
 }
 
+// SetAddrHeaderFromMailAddress sets the specified AddrHeader for the Msg to the given mail.Address values.
+//
+// This method allows you to set address-related headers for the message, with mail.Address instances
+// as input. Using this method helps maintain the integrity of the email addresses within the message.
+//
+// Since we expect the mail.Address instances to be already parsed according to RFC 5322, this method
+// will not attempt to perform any sanity checks except of nil pointers and therefore no error will
+// be returned. Nil pointers will be silently ignored.
+//
+// Parameters:
+//   - header: The AddrHeader to set in the Msg (e.g., "From", "To", "Cc", "Bcc").
+//   - addresses: One or more mail.Address pointers representing the email addresses to associate with
+//     the specified header.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.4
+func (m *Msg) SetAddrHeaderFromMailAddress(header AddrHeader, values ...*mail.Address) {
+	if m.addrHeader == nil {
+		m.addrHeader = make(map[AddrHeader][]*mail.Address)
+	}
+
+	var addresses []*mail.Address
+	for _, addrVal := range values {
+		if addrVal == nil {
+			continue
+		}
+		addresses = append(addresses, addrVal)
+	}
+
+	switch header {
+	case HeaderEnvelopeFrom, HeaderFrom, HeaderReplyTo:
+		if len(addresses) > 0 {
+			m.addrHeader[header] = []*mail.Address{addresses[0]}
+		}
+	default:
+		m.addrHeader[header] = addresses
+	}
+}
+
 // SetAddrHeaderIgnoreInvalid sets the specified AddrHeader for the Msg to the given values.
 //
 // Addresses are parsed according to RFC 5322. If parsing of any of the provided values fails,
@@ -583,6 +650,9 @@ func (m *Msg) SetAddrHeader(header AddrHeader, values ...string) error {
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.4
 func (m *Msg) SetAddrHeaderIgnoreInvalid(header AddrHeader, values ...string) {
+	if m.addrHeader == nil {
+		m.addrHeader = make(map[AddrHeader][]*mail.Address)
+	}
 	var addresses []*mail.Address
 	for _, addrVal := range values {
 		address, err := mail.ParseAddress(m.encodeString(addrVal))
@@ -591,7 +661,14 @@ func (m *Msg) SetAddrHeaderIgnoreInvalid(header AddrHeader, values ...string) {
 		}
 		addresses = append(addresses, address)
 	}
-	m.addrHeader[header] = addresses
+	switch header {
+	case HeaderFrom:
+		if len(addresses) > 0 {
+			m.addrHeader[header] = []*mail.Address{addresses[0]}
+		}
+	default:
+		m.addrHeader[header] = addresses
+	}
 }
 
 // EnvelopeFrom sets the envelope from address for the Msg.
@@ -628,6 +705,23 @@ func (m *Msg) EnvelopeFromFormat(name, addr string) error {
 	return m.SetAddrHeader(HeaderEnvelopeFrom, fmt.Sprintf(`"%s" <%s>`, name, addr))
 }
 
+// EnvelopeFromMailAddress sets the "FROM" address in the mail body for the Msg using a mail.Address instance.
+//
+// The HeaderEnvelopeFrom address is generally not included in the mail body but only used by the
+// Client for communication with the SMTP server. If the Msg has no "FROM" address set in the mail
+// body, the msgWriter will try to use the envelope from address if it has been set for the Msg.
+// The provided name and address are validated according to RFC 5322 and will return an error if
+// the validation fails.
+//
+// Parameters:
+//   - addr: The address as mail.Address instance to be set as envelope from address.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.2
+func (m *Msg) EnvelopeFromMailAddress(addr *mail.Address) {
+	m.SetAddrHeaderFromMailAddress(HeaderEnvelopeFrom, addr)
+}
+
 // From sets the "FROM" address in the mail body for the Msg.
 //
 // The "FROM" address is included in the mail body and indicates the sender of the message to
@@ -643,6 +737,22 @@ func (m *Msg) EnvelopeFromFormat(name, addr string) error {
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.2
 func (m *Msg) From(from string) error {
 	return m.SetAddrHeader(HeaderFrom, from)
+}
+
+// FromMailAddress sets the "FROM" address in the mail body for the Msg using a mail.Address instance.
+//
+// The "FROM" address is included in the mail body and indicates the sender of the message to
+// the recipient. This address is visible in the email client and is typically displayed to the
+// recipient. If the "FROM" address is not set, the msgWriter may attempt to use the envelope
+// from address (if available) for sending.
+//
+// Parameters:
+//   - from: The "FROM" address to set in the mail body as *mail.Address.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.2
+func (m *Msg) FromMailAddress(from *mail.Address) {
+	m.SetAddrHeaderFromMailAddress(HeaderFrom, from)
 }
 
 // FromFormat sets the provided name and mail address as the "FROM" address in the mail body for the Msg.
@@ -679,6 +789,22 @@ func (m *Msg) To(rcpts ...string) error {
 	return m.SetAddrHeader(HeaderTo, rcpts...)
 }
 
+// ToMailAddress sets one or more "TO" addresses in the mail body for the Msg.
+//
+// The "TO" address specifies the primary recipient(s) of the message and is included in the mail body.
+// This address is visible to the recipient and any other recipients of the message. Multiple "TO" addresses
+// can be set by passing them as variadic arguments to this method.
+//
+// Parameters:
+//   - rcpts: One or more recipient email addresses as mail.Address instance to include
+//     in the "TO" field.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
+func (m *Msg) ToMailAddress(rcpts ...*mail.Address) {
+	m.SetAddrHeaderFromMailAddress(HeaderTo, rcpts...)
+}
+
 // AddTo adds a single "TO" address to the existing list of recipients in the mail body for the Msg.
 //
 // This method allows you to add a single recipient to the "TO" field without replacing any previously set
@@ -693,6 +819,23 @@ func (m *Msg) To(rcpts ...string) error {
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
 func (m *Msg) AddTo(rcpt string) error {
 	return m.addAddr(HeaderTo, rcpt)
+}
+
+// AddToMailAddress adds a single "TO" address to the existing list of recipients in the mail body for the Msg.
+//
+// This method allows you to add a single recipient to the "TO" field without replacing any previously set
+// "TO" addresses. The "TO" address specifies the primary recipient(s) of the message and is visible in the mail
+// client. Since the provided mail.Address has already been validated, no further validation is performed in
+// this method and the values are used as given.
+//
+// Parameters:
+//   - rcpt: The recipient email address as *mail.Address to add to the "TO" field.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
+func (m *Msg) AddToMailAddress(rcpt *mail.Address) {
+	addresses := append(m.addrHeader[HeaderTo], rcpt)
+	m.SetAddrHeaderFromMailAddress(HeaderTo, addresses...)
 }
 
 // AddToFormat adds a single "TO" address with the provided name and email to the existing list of recipients
@@ -743,7 +886,16 @@ func (m *Msg) ToIgnoreInvalid(rcpts ...string) {
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
 func (m *Msg) ToFromString(rcpts string) error {
-	return m.To(strings.Split(rcpts, ",")...)
+	src := strings.Split(rcpts, ",")
+	var dst []string
+	for _, address := range src {
+		address = strings.TrimSpace(address)
+		if address == "" {
+			continue
+		}
+		dst = append(dst, address)
+	}
+	return m.To(dst...)
 }
 
 // Cc sets one or more "CC" (carbon copy) addresses in the mail body for the Msg.
@@ -762,6 +914,22 @@ func (m *Msg) Cc(rcpts ...string) error {
 	return m.SetAddrHeader(HeaderCc, rcpts...)
 }
 
+// CcMailAddress sets one or more "CC" (carbon copy) addresses in the mail body for the Msg.
+//
+// The "CC" address specifies secondary recipient(s) of the message, and is included in the mail body.
+// This address is visible to the recipient and any other recipients of the message. Multiple "CC" addresses
+// can be set by passing them as variadic arguments to this method.
+//
+// Parameters:
+//   - rcpts: One or more recipient email addresses as mail.Address instance to include
+//     in the "CC" field.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
+func (m *Msg) CcMailAddress(rcpts ...*mail.Address) {
+	m.SetAddrHeaderFromMailAddress(HeaderCc, rcpts...)
+}
+
 // AddCc adds a single "CC" (carbon copy) address to the existing list of "CC" recipients in the mail body
 // for the Msg.
 //
@@ -777,6 +945,23 @@ func (m *Msg) Cc(rcpts ...string) error {
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
 func (m *Msg) AddCc(rcpt string) error {
 	return m.addAddr(HeaderCc, rcpt)
+}
+
+// AddCcMailAddress adds a single "CC" address to the existing list of recipients in the mail body for the Msg.
+//
+// This method allows you to add a single recipient to the "CC" field without replacing any previously set "CC"
+// addresses. The "CC" address specifies secondary recipient(s) and is visible to all recipients, including those
+// in the "CC" field. Since the provided mail.Address has already been validated, no further validation is
+// performed in this method and the values are used as given.
+//
+// Parameters:
+//   - rcpt: The recipient email address as *mail.Address to add to the "CC" field.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
+func (m *Msg) AddCcMailAddress(rcpt *mail.Address) {
+	addresses := append(m.addrHeader[HeaderCc], rcpt)
+	m.SetAddrHeaderFromMailAddress(HeaderCc, addresses...)
 }
 
 // AddCcFormat adds a single "CC" (carbon copy) address with the provided name and email to the existing list
@@ -828,7 +1013,16 @@ func (m *Msg) CcIgnoreInvalid(rcpts ...string) {
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
 func (m *Msg) CcFromString(rcpts string) error {
-	return m.Cc(strings.Split(rcpts, ",")...)
+	src := strings.Split(rcpts, ",")
+	var dst []string
+	for _, address := range src {
+		address = strings.TrimSpace(address)
+		if address == "" {
+			continue
+		}
+		dst = append(dst, address)
+	}
+	return m.Cc(dst...)
 }
 
 // Bcc sets one or more "BCC" (blind carbon copy) addresses in the mail body for the Msg.
@@ -848,6 +1042,22 @@ func (m *Msg) Bcc(rcpts ...string) error {
 	return m.SetAddrHeader(HeaderBcc, rcpts...)
 }
 
+// BccMailAddress sets one or more "BCC" (blind carbon copy) addresses in the mail body for the Msg.
+//
+// The "BCC" address specifies recipient(s) of the message who will receive a copy without other recipients
+// being aware of it. These addresses are not visible in the mail body or to any other recipients, ensuring
+// the privacy of BCC'd recipients. Multiple "BCC" addresses can be set by passing them as variadic arguments
+// arguments to this method.
+//
+// Parameters:
+//   - rcpts: One or more recipient email addresses as mail.Address instance to include in the "BCC" field.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
+func (m *Msg) BccMailAddress(rcpts ...*mail.Address) {
+	m.SetAddrHeaderFromMailAddress(HeaderBcc, rcpts...)
+}
+
 // AddBcc adds a single "BCC" (blind carbon copy) address to the existing list of "BCC" recipients in the mail
 // body for the Msg.
 //
@@ -863,6 +1073,22 @@ func (m *Msg) Bcc(rcpts ...string) error {
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
 func (m *Msg) AddBcc(rcpt string) error {
 	return m.addAddr(HeaderBcc, rcpt)
+}
+
+// AddBccMailAddress adds a single "BCC" address to the existing list of recipients in the mail body for the Msg.
+//
+// This method allows you to add a single recipient to the "BCC" field without replacing any previously set
+// "BCC" addresses. The "BCC" address specifies recipient(s) of the message who will receive a copy without other
+// recipients being aware of it.
+//
+// Parameters:
+//   - rcpt: The recipient email address as *mail.Address to add to the "BCC" field.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
+func (m *Msg) AddBccMailAddress(rcpt *mail.Address) {
+	addresses := append(m.addrHeader[HeaderBcc], rcpt)
+	m.SetAddrHeaderFromMailAddress(HeaderBcc, addresses...)
 }
 
 // AddBccFormat adds a single "BCC" (blind carbon copy) address with the provided name and email to the existing
@@ -914,7 +1140,16 @@ func (m *Msg) BccIgnoreInvalid(rcpts ...string) {
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
 func (m *Msg) BccFromString(rcpts string) error {
-	return m.Bcc(strings.Split(rcpts, ",")...)
+	src := strings.Split(rcpts, ",")
+	var dst []string
+	for _, address := range src {
+		address = strings.TrimSpace(address)
+		if address == "" {
+			continue
+		}
+		dst = append(dst, address)
+	}
+	return m.Bcc(dst...)
 }
 
 // ReplyTo sets the "Reply-To" address for the Msg, specifying where replies should be sent.
@@ -930,12 +1165,21 @@ func (m *Msg) BccFromString(rcpts string) error {
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.2
 func (m *Msg) ReplyTo(addr string) error {
-	replyTo, err := mail.ParseAddress(addr)
-	if err != nil {
-		return fmt.Errorf("failed to parse reply-to address: %w", err)
-	}
-	m.SetGenHeader(HeaderReplyTo, replyTo.String())
-	return nil
+	return m.SetAddrHeader(HeaderReplyTo, addr)
+}
+
+// ReplyToMailAddress sets one or more "BCC" (blind carbon copy) addresses in the mail body for the Msg.
+//
+// The "Reply-To" address can be different from the "From" address, allowing the sender to specify an alternate
+// address for responses.
+//
+// Parameters:
+//   - addr: The mail.Address instance to set as the "Reply-To" address.
+//
+// References:
+//   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.6.3
+func (m *Msg) ReplyToMailAddress(addr *mail.Address) {
+	m.SetAddrHeaderFromMailAddress(HeaderReplyTo, addr)
 }
 
 // ReplyToFormat sets the "Reply-To" address for the Msg using the provided name and email address, specifying
@@ -1050,8 +1294,7 @@ func (m *Msg) SetBulk() {
 //   - https://datatracker.ietf.org/doc/html/rfc5322#section-3.3
 //   - https://datatracker.ietf.org/doc/html/rfc1123
 func (m *Msg) SetDate() {
-	now := time.Now().Format(time.RFC1123Z)
-	m.SetGenHeader(HeaderDate, now)
+	m.SetDateWithValue(time.Now())
 }
 
 // SetDateWithValue sets the "Date" header for the Msg using the provided time value in a valid RFC 1123 format.
@@ -1151,6 +1394,9 @@ func (m *Msg) IsDelivered() bool {
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc8098
 func (m *Msg) RequestMDNTo(rcpts ...string) error {
+	if m.genHeader == nil {
+		m.genHeader = make(map[Header][]string)
+	}
 	var addresses []string
 	for _, addrVal := range rcpts {
 		address, err := mail.ParseAddress(addrVal)
@@ -1159,9 +1405,7 @@ func (m *Msg) RequestMDNTo(rcpts ...string) error {
 		}
 		addresses = append(addresses, address.String())
 	}
-	if _, ok := m.genHeader[HeaderDispositionNotificationTo]; ok {
-		m.genHeader[HeaderDispositionNotificationTo] = addresses
-	}
+	m.genHeader[HeaderDispositionNotificationTo] = addresses
 	return nil
 }
 
@@ -1200,11 +1444,11 @@ func (m *Msg) RequestMDNAddTo(rcpt string) error {
 		return fmt.Errorf(errParseMailAddr, rcpt, err)
 	}
 	var addresses []string
-	addresses = append(addresses, m.genHeader[HeaderDispositionNotificationTo]...)
-	addresses = append(addresses, address.String())
-	if _, ok := m.genHeader[HeaderDispositionNotificationTo]; ok {
-		m.genHeader[HeaderDispositionNotificationTo] = addresses
+	if current, ok := m.genHeader[HeaderDispositionNotificationTo]; ok {
+		addresses = current
 	}
+	addresses = append(addresses, address.String())
+	m.genHeader[HeaderDispositionNotificationTo] = addresses
 	return nil
 }
 
@@ -1251,10 +1495,12 @@ func (m *Msg) GetSender(useFullAddr bool) (string, error) {
 			return "", ErrNoFromAddress
 		}
 	}
-	if useFullAddr {
-		return from[0].String(), nil
+
+	addr := from[0]
+	if !useFullAddr {
+		addr.Name = ""
 	}
-	return from[0].Address, nil
+	return addr.String(), nil
 }
 
 // GetRecipients returns a list of the currently set "TO", "CC", and "BCC" addresses for the Msg.
@@ -1278,7 +1524,8 @@ func (m *Msg) GetRecipients() ([]string, error) {
 			continue
 		}
 		for _, r := range addresses {
-			rcpts = append(rcpts, r.Address)
+			r.Name = ""
+			rcpts = append(rcpts, r.String())
 		}
 	}
 	if len(rcpts) <= 0 {
@@ -1485,6 +1732,10 @@ func (m *Msg) GetAttachments() []*File {
 // particularly in multipart emails. The boundary helps to differentiate between various sections
 // such as plain text, HTML content, and attachments.
 //
+// NOTE: By default, random MIME boundaries are created. Using a predefined boundary will only
+// work with messages that hold a single multipart part. Using a predefined boundary with several
+// multipart parts will render the mail unreadable to the mail client.
+//
 // Returns:
 //   - A string representing the boundary of the message.
 //
@@ -1492,6 +1743,19 @@ func (m *Msg) GetAttachments() []*File {
 //   - https://datatracker.ietf.org/doc/html/rfc2046#section-5.1.1
 func (m *Msg) GetBoundary() string {
 	return m.boundary
+}
+
+// ServerResponse returns the server's response after queuing the mail.
+//
+// This function retrieves the value of m.serverResponse, which typically contains information
+// such as the queue ID returned by the mail server once a message has been queued. Unfortunately
+// different mail server software returns different server responses, therefore you have to
+// parse the output yourself.
+//
+// Returns:
+//   - The server response string, usually containing the queue ID or status.
+func (m *Msg) ServerResponse() string {
+	return m.serverResponse
 }
 
 // SetAttachments sets the attachments of the message.
@@ -1644,11 +1908,11 @@ func (m *Msg) SetBodyHTMLTemplate(tpl *ht.Template, data interface{}, opts ...Pa
 	if tpl == nil {
 		return errors.New(errTplPointerNil)
 	}
-	buffer := bytes.Buffer{}
-	if err := tpl.Execute(&buffer, data); err != nil {
+	buffer := bytes.NewBuffer(nil)
+	if err := tpl.Execute(buffer, data); err != nil {
 		return fmt.Errorf(errTplExecuteFailed, err)
 	}
-	writeFunc := writeFuncFromBuffer(&buffer)
+	writeFunc := writeFuncFromBuffer(buffer)
 	m.SetBodyWriter(TypeTextHTML, writeFunc, opts...)
 	return nil
 }
@@ -1675,11 +1939,11 @@ func (m *Msg) SetBodyTextTemplate(tpl *tt.Template, data interface{}, opts ...Pa
 	if tpl == nil {
 		return errors.New(errTplPointerNil)
 	}
-	buf := bytes.Buffer{}
-	if err := tpl.Execute(&buf, data); err != nil {
+	buffer := bytes.NewBuffer(nil)
+	if err := tpl.Execute(buffer, data); err != nil {
 		return fmt.Errorf(errTplExecuteFailed, err)
 	}
-	writeFunc := writeFuncFromBuffer(&buf)
+	writeFunc := writeFuncFromBuffer(buffer)
 	m.SetBodyWriter(TypeTextPlain, writeFunc, opts...)
 	return nil
 }
@@ -1749,11 +2013,11 @@ func (m *Msg) AddAlternativeHTMLTemplate(tpl *ht.Template, data interface{}, opt
 	if tpl == nil {
 		return errors.New(errTplPointerNil)
 	}
-	buffer := bytes.Buffer{}
-	if err := tpl.Execute(&buffer, data); err != nil {
+	buffer := bytes.NewBuffer(nil)
+	if err := tpl.Execute(buffer, data); err != nil {
 		return fmt.Errorf(errTplExecuteFailed, err)
 	}
-	writeFunc := writeFuncFromBuffer(&buffer)
+	writeFunc := writeFuncFromBuffer(buffer)
 	m.AddAlternativeWriter(TypeTextHTML, writeFunc, opts...)
 	return nil
 }
@@ -1779,11 +2043,11 @@ func (m *Msg) AddAlternativeTextTemplate(tpl *tt.Template, data interface{}, opt
 	if tpl == nil {
 		return errors.New(errTplPointerNil)
 	}
-	buffer := bytes.Buffer{}
-	if err := tpl.Execute(&buffer, data); err != nil {
+	buffer := bytes.NewBuffer(nil)
+	if err := tpl.Execute(buffer, data); err != nil {
 		return fmt.Errorf(errTplExecuteFailed, err)
 	}
-	writeFunc := writeFuncFromBuffer(&buffer)
+	writeFunc := writeFuncFromBuffer(buffer)
 	m.AddAlternativeWriter(TypeTextPlain, writeFunc, opts...)
 	return nil
 }
@@ -1925,9 +2189,28 @@ func (m *Msg) AttachTextTemplate(
 //   - https://datatracker.ietf.org/doc/html/rfc2183
 func (m *Msg) AttachFromEmbedFS(name string, fs *embed.FS, opts ...FileOption) error {
 	if fs == nil {
-		return fmt.Errorf("embed.FS must not be nil")
+		return errors.New("embed.FS must not be nil")
 	}
-	file, err := fileFromEmbedFS(name, fs)
+	return m.AttachFromIOFS(name, *fs, opts...)
+}
+
+// AttachFromIOFS attaches a file from a generic file system to the message.
+//
+// This function retrieves a file by name from an fs.FS instance, processes it, and appends it to the
+// message's attachment collection. Additional file options can be provided for further customization.
+//
+// Parameters:
+//   - name: The name of the file to retrieve from the file system.
+//   - iofs: The file system (must not be nil).
+//   - opts: Optional file options to customize the attachment process.
+//
+// Returns:
+//   - An error if the file cannot be retrieved, the fs.FS is nil, or any other issue occurs.
+func (m *Msg) AttachFromIOFS(name string, iofs fs.FS, opts ...FileOption) error {
+	if iofs == nil {
+		return errors.New("fs.FS must not be nil")
+	}
+	file, err := fileFromIOFS(name, iofs)
 	if err != nil {
 		return err
 	}
@@ -2071,9 +2354,28 @@ func (m *Msg) EmbedTextTemplate(
 //   - https://datatracker.ietf.org/doc/html/rfc2183
 func (m *Msg) EmbedFromEmbedFS(name string, fs *embed.FS, opts ...FileOption) error {
 	if fs == nil {
-		return fmt.Errorf("embed.FS must not be nil")
+		return errors.New("embed.FS must not be nil")
 	}
-	file, err := fileFromEmbedFS(name, fs)
+	return m.EmbedFromIOFS(name, *fs, opts...)
+}
+
+// EmbedFromIOFS embeds a file from a generic file system into the message.
+//
+// This function retrieves a file by name from an fs.FS instance, processes it, and appends it to the
+// message's embed collection. Additional file options can be provided for further customization.
+//
+// Parameters:
+//   - name: The name of the file to retrieve from the file system.
+//   - iofs: The file system (must not be nil).
+//   - opts: Optional file options to customize the embedding process.
+//
+// Returns:
+//   - An error if the file cannot be retrieved, the fs.FS is nil, or any other issue occurs.
+func (m *Msg) EmbedFromIOFS(name string, iofs fs.FS, opts ...FileOption) error {
+	if iofs == nil {
+		return errors.New("fs.FS must not be nil")
+	}
+	file, err := fileFromIOFS(name, iofs)
 	if err != nil {
 		return err
 	}
@@ -2132,7 +2434,16 @@ func (m *Msg) applyMiddlewares(msg *Msg) *Msg {
 //   - https://datatracker.ietf.org/doc/html/rfc5322
 func (m *Msg) WriteTo(writer io.Writer) (int64, error) {
 	mw := &msgWriter{writer: writer, charset: m.charset, encoder: m.encoder}
-	mw.writeMsg(m.applyMiddlewares(m))
+	msg := m.applyMiddlewares(m)
+
+	if m.hasSMIME() {
+		if err := m.signMessage(); err != nil {
+			return 0, err
+		}
+	}
+
+	mw.writeMsg(msg)
+	m.headerCount = 0
 	return mw.bytesWritten, mw.err
 }
 
@@ -2334,8 +2645,8 @@ func (m *Msg) WriteToSendmailWithContext(ctx context.Context, sendmailPath strin
 //   - https://datatracker.ietf.org/doc/html/rfc5322
 func (m *Msg) NewReader() *Reader {
 	reader := &Reader{}
-	buffer := bytes.Buffer{}
-	_, err := m.Write(&buffer)
+	buffer := bytes.NewBuffer(nil)
+	_, err := m.Write(buffer)
 	if err != nil {
 		reader.err = fmt.Errorf("failed to write Msg to Reader buffer: %w", err)
 	}
@@ -2426,6 +2737,66 @@ func (m *Msg) addAddr(header AddrHeader, addr string) error {
 	return m.SetAddrHeader(header, addresses...)
 }
 
+// SignWithKeypair configures the Msg to be signed with S/MIME using RSA or ECDSA public-/private keypair.
+//
+// This function sets up S/MIME signing for the Msg by associating it with the provided private key,
+// certificate, and intermediate certificate.
+//
+// Parameters:
+//   - privateKey: The RSA private key used for signing.
+//   - certificate: The x509 certificate associated with the private key.
+//   - intermediateCert: An optional intermediate x509 certificate for chain validation.
+//
+// Returns:
+//   - An error if any issue occurred while configuring S/MIME signing; otherwise nil.
+func (m *Msg) SignWithKeypair(privateKey crypto.PrivateKey, certificate *x509.Certificate,
+	intermediateCert *x509.Certificate,
+) error {
+	smime, err := newSMIME(privateKey, certificate, intermediateCert)
+	if err != nil {
+		return err
+	}
+	m.sMIME = smime
+	return nil
+}
+
+// SignWithTLSCertificate signs the Msg with the provided *tls.Certificate.
+//
+// This function configures the Msg for S/MIME signing using the private key and certificates
+// from the provided TLS certificate. It supports both RSA and ECDSA private keys.
+//
+// Parameters:
+//   - keyPairTlS: The *tls.Certificate containing the private key and associated certificate chain.
+//
+// Returns:
+//   - An error if any issue occurred during parsing, signing configuration, or unsupported private key type.
+func (m *Msg) SignWithTLSCertificate(keyPairTLS *tls.Certificate) error {
+	if keyPairTLS == nil {
+		return fmt.Errorf("keyPairTLS cannot be nil")
+	}
+
+	var intermediateCert *x509.Certificate
+	var err error
+	if len(keyPairTLS.Certificate) > 1 {
+		intermediateCert, err = x509.ParseCertificate(keyPairTLS.Certificate[1])
+		if err != nil {
+			return fmt.Errorf("failed to parse intermediate certificate: %w", err)
+		}
+	}
+
+	leafCertificate, err := getLeafCertificate(keyPairTLS)
+	if err != nil {
+		return fmt.Errorf("failed to get leaf certificate: %w", err)
+	}
+
+	switch keyPairTLS.PrivateKey.(type) {
+	case *rsa.PrivateKey, *ecdsa.PrivateKey:
+		return m.SignWithKeypair(keyPairTLS.PrivateKey, leafCertificate, intermediateCert)
+	default:
+		return fmt.Errorf("unsupported private key type: %T", keyPairTLS.PrivateKey)
+	}
+}
+
 // appendFile adds a File to the Msg, either as an attachment or an embed.
 //
 // This method appends a File to the list of files (attachments or embeds) for the message. It applies
@@ -2492,7 +2863,7 @@ func (m *Msg) encodeString(str string) string {
 func (m *Msg) hasAlt() bool {
 	count := 0
 	for _, part := range m.parts {
-		if !part.isDeleted {
+		if !part.isDeleted && !part.smime {
 			count++
 		}
 	}
@@ -2512,6 +2883,26 @@ func (m *Msg) hasAlt() bool {
 //   - https://datatracker.ietf.org/doc/html/rfc2046#section-5.1.3
 func (m *Msg) hasMixed() bool {
 	return m.pgptype == 0 && ((len(m.parts) > 0 && len(m.attachments) > 0) || len(m.attachments) > 1)
+}
+
+// hasSMIME determines if the Msg should be signed with S/MIME.
+//
+// This function checks whether the Msg has SMIME type assigned.
+//
+// Returns:
+//   - true if the Msg has SMIME type assigned and should be signed with S/MIME; otherwise false.
+func (m *Msg) hasSMIME() bool {
+	return m.sMIME != nil
+}
+
+// isSMIMEInProgress checks whether an S/MIME signing operation is currently in progress.
+//
+// This function verifies if the S/MIME configuration exists and if the signing process is active.
+//
+// Returns:
+//   - true if an S/MIME signing operation is in progress; otherwise false.
+func (m *Msg) isSMIMEInProgress() bool {
+	return m.sMIME != nil && m.sMIME.inProgress
 }
 
 // hasRelated returns true if the Msg has related parts.
@@ -2629,15 +3020,15 @@ func (m *Msg) addDefaultHeader() {
 	m.SetGenHeader(HeaderMIMEVersion, string(m.mimever))
 }
 
-// fileFromEmbedFS returns a File pointer from a given file in the provided embed.FS.
+// fileFromIOFS returns a File pointer from a given file in the provided fs.FS.
 //
-// This method retrieves a file from the embedded filesystem (embed.FS) and returns a File structure
+// This method retrieves a file from the provided io/fs (fs.FS) and returns a File structure
 // that can be used as an attachment or embed in the email message. The file's content is read when
 // writing to an io.Writer, and the file is identified by its base name.
 //
 // Parameters:
 //   - name: The name of the file to retrieve from the embedded filesystem.
-//   - fs: A pointer to the embed.FS from which the file will be opened.
+//   - fs: An instance that satisfies the fs.FS interface
 //
 // Returns:
 //   - A pointer to the File structure representing the embedded file.
@@ -2645,23 +3036,27 @@ func (m *Msg) addDefaultHeader() {
 //
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc2183
-func fileFromEmbedFS(name string, fs *embed.FS) (*File, error) {
-	_, err := fs.Open(name)
+func fileFromIOFS(name string, iofs fs.FS) (*File, error) {
+	if iofs == nil {
+		return nil, errors.New("fs.FS is nil")
+	}
+
+	_, err := iofs.Open(name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file from embed.FS: %w", err)
+		return nil, fmt.Errorf("failed to open file from fs.FS: %w", err)
 	}
 	return &File{
 		Name:   filepath.Base(name),
 		Header: make(map[string][]string),
 		Writer: func(writer io.Writer) (int64, error) {
-			file, err := fs.Open(name)
-			if err != nil {
-				return 0, err
+			file, ferr := iofs.Open(name)
+			if ferr != nil {
+				return 0, fmt.Errorf("failed to open file from fs.FS: %w", ferr)
 			}
-			numBytes, err := io.Copy(writer, file)
-			if err != nil {
+			numBytes, ferr := io.Copy(writer, file)
+			if ferr != nil {
 				_ = file.Close()
-				return numBytes, fmt.Errorf("failed to copy file to io.Writer: %w", err)
+				return numBytes, fmt.Errorf("failed to copy file from fs.FS to io.Writer: %w", ferr)
 			}
 			return numBytes, file.Close()
 		},
@@ -2851,6 +3246,63 @@ func getEncoder(enc Encoding) mime.WordEncoder {
 	default:
 		return mime.QEncoding
 	}
+}
+
+// signMessage signs the message with S/MIME and attaches the signature as a new part.
+//
+// This function removes any existing S/MIME parts to prevent duplicate signatures, renders an
+// unsigned version of the message, and then signs it. The resulting signature is appended to the
+// message as a new S/MIME signature part.
+//
+// Returns:
+//   - An error if any step in the signing process fails, such as finding the message body position
+//     or generating the signature.
+func (m *Msg) signMessage() error {
+	// To avoid attaching double signatures (i. e. if WriteTo is called multiple times)
+	// we remove any present smime part before signing the mail
+	parts := make([]*Part, 0)
+	for _, part := range m.parts {
+		if !part.smime {
+			parts = append(parts, part)
+		}
+	}
+	m.parts = parts
+
+	// We need to indicate that we are in the signing process
+	m.sMIME.inProgress = true
+	defer func() {
+		m.sMIME.inProgress = false
+	}()
+
+	// We render an unsigned version of the mail into a buffer so we can use it for
+	// the S/MIME signature
+	buf := bytes.NewBuffer(nil)
+	mw := &msgWriter{writer: buf, charset: m.charset, encoder: m.encoder}
+	mw.writeMsg(m)
+
+	// Since we only want to sign the message body, we need to find the position within
+	// the mail body from where we start reading.
+	linecount := 0
+	pos := 0
+	for linecount < m.headerCount {
+		nextIndex := bytes.Index(buf.Bytes()[pos:], []byte("\r\n"))
+		if nextIndex == -1 {
+			return errors.New("unable to find message body starting index within rendered message")
+		}
+		pos += nextIndex + 2
+		linecount++
+	}
+
+	// Sign the message and attach a new smime signature part to the mail
+	signedMessage, err := m.sMIME.signMessage(buf.Bytes()[pos:])
+	if err != nil {
+		return fmt.Errorf("failed to sign message: %w", err)
+	}
+	signaturePart := m.newPart(TypeSMIMESigned, WithPartEncoding(EncodingB64), WithSMIMESigning())
+	signaturePart.SetContent(signedMessage)
+	m.parts = append(m.parts, signaturePart)
+
+	return nil
 }
 
 // writeFuncFromBuffer converts a byte buffer into a writeFunc, which is commonly required by go-mail.

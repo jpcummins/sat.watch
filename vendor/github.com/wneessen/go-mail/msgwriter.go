@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2023 The go-mail Authors
+// SPDX-FileCopyrightText: The go-mail Authors
 //
 // SPDX-License-Identifier: MIT
 
@@ -57,7 +57,7 @@ type msgWriter struct {
 	depth           int8
 	encoder         mime.WordEncoder
 	err             error
-	multiPartWriter [3]*multipart.Writer
+	multiPartWriter [4]*multipart.Writer
 	partWriter      io.Writer
 	writer          io.Writer
 }
@@ -114,39 +114,63 @@ func (mw *msgWriter) writeMsg(msg *Msg) {
 		}
 	}
 	if hasFrom && (len(from) > 0 && from[0] != nil) {
-		mw.writeHeader(Header(HeaderFrom), from[0].String())
+		msg.headerCount += mw.writeHeader(Header(HeaderFrom), from[0].String())
 	}
 
 	// Set the rest of the address headers
-	for _, to := range []AddrHeader{HeaderTo, HeaderCc} {
+	for _, to := range []AddrHeader{HeaderTo, HeaderCc, HeaderReplyTo} {
 		if addresses, ok := msg.addrHeader[to]; ok {
 			var val []string
 			for _, addr := range addresses {
+				if addr == nil {
+					continue
+				}
 				val = append(val, addr.String())
 			}
-			mw.writeHeader(Header(to), val...)
+			msg.headerCount += mw.writeHeader(Header(to), val...)
 		}
 	}
 
-	if msg.hasMixed() {
-		mw.startMP(MIMEMixed, msg.boundary)
+	if msg.hasSMIME() && !msg.isSMIMEInProgress() {
+		boundary, err := randomBoundary()
+		if err != nil {
+			mw.err = err
+			return
+		}
+		mw.startMP(msg, MIMESMIMESigned, boundary)
 		mw.writeString(DoubleNewLine)
+	}
+	if msg.hasMixed() {
+		boundary := mw.getMultipartBoundary(msg, MIMEMixed)
+		boundary = mw.startMP(msg, MIMEMixed, boundary)
+		msg.multiPartBoundary[MIMEMixed] = boundary
+		if mw.depth == 1 {
+			mw.writeString(DoubleNewLine)
+		}
 	}
 	if msg.hasRelated() {
-		mw.startMP(MIMERelated, msg.boundary)
-		mw.writeString(DoubleNewLine)
+		boundary := mw.getMultipartBoundary(msg, MIMERelated)
+		boundary = mw.startMP(msg, MIMERelated, boundary)
+		msg.multiPartBoundary[MIMERelated] = boundary
+		if mw.depth == 1 {
+			mw.writeString(DoubleNewLine)
+		}
 	}
 	if msg.hasAlt() {
-		mw.startMP(MIMEAlternative, msg.boundary)
-		mw.writeString(DoubleNewLine)
+		boundary := mw.getMultipartBoundary(msg, MIMEAlternative)
+		boundary = mw.startMP(msg, MIMEAlternative, boundary)
+		msg.multiPartBoundary[MIMEAlternative] = boundary
+		if mw.depth == 1 {
+			mw.writeString(DoubleNewLine)
+		}
 	}
 	if msg.hasPGPType() {
 		switch msg.pgptype {
 		case PGPEncrypt:
-			mw.startMP(`encrypted; protocol="application/pgp-encrypted"`,
+			mw.startMP(msg, `encrypted; protocol="application/pgp-encrypted"`,
 				msg.boundary)
 		case PGPSignature:
-			mw.startMP(`signed; protocol="application/pgp-signature";`,
+			mw.startMP(msg, `signed; protocol="application/pgp-signature";`,
 				msg.boundary)
 		default:
 		}
@@ -154,7 +178,7 @@ func (mw *msgWriter) writeMsg(msg *Msg) {
 	}
 
 	for _, part := range msg.parts {
-		if !part.isDeleted {
+		if !part.isDeleted && !part.smime {
 			mw.writePart(part, msg.charset)
 		}
 	}
@@ -174,6 +198,15 @@ func (mw *msgWriter) writeMsg(msg *Msg) {
 	if msg.hasMixed() {
 		mw.stopMP()
 	}
+
+	if msg.hasSMIME() && !msg.isSMIMEInProgress() {
+		for _, part := range msg.parts {
+			if part.smime {
+				mw.writePart(part, msg.charset)
+			}
+		}
+		mw.stopMP()
+	}
 }
 
 // writeGenHeader writes out all generic headers to the msgWriter.
@@ -188,9 +221,10 @@ func (mw *msgWriter) writeGenHeader(msg *Msg) {
 	for key := range msg.genHeader {
 		keys = append(keys, string(key))
 	}
+
 	sort.Strings(keys)
 	for _, key := range keys {
-		mw.writeHeader(Header(key), msg.genHeader[Header(key)]...)
+		msg.headerCount += mw.writeHeader(Header(key), msg.genHeader[Header(key)]...)
 	}
 }
 
@@ -203,7 +237,9 @@ func (mw *msgWriter) writeGenHeader(msg *Msg) {
 //   - msg: The Msg object containing the preformatted headers to be written.
 func (mw *msgWriter) writePreformattedGenHeader(msg *Msg) {
 	for key, val := range msg.preformHeader {
-		mw.writeString(fmt.Sprintf("%s: %s%s", key, val, SingleNewLine))
+		line := fmt.Sprintf("%s: %s%s", key, val, SingleNewLine)
+		mw.writeString(line)
+		msg.headerCount += strings.Count(line, SingleNewLine)
 	}
 }
 
@@ -215,12 +251,16 @@ func (mw *msgWriter) writePreformattedGenHeader(msg *Msg) {
 // generated. It also handles writing a new part when nested multipart structures are used.
 //
 // Parameters:
+//   - msg: The message whose multipart headers are being written.
 //   - mimeType: The MIME type of the multipart content (e.g., "mixed", "alternative").
 //   - boundary: The boundary string separating different parts of the multipart message.
 //
+// Returns:
+//   - The multipart boundary string
+//
 // References:
 //   - https://datatracker.ietf.org/doc/html/rfc2046
-func (mw *msgWriter) startMP(mimeType MIMEType, boundary string) {
+func (mw *msgWriter) startMP(msg *Msg, mimeType MIMEType, boundary string) string {
 	multiPartWriter := multipart.NewWriter(mw)
 	if boundary != "" {
 		mw.err = multiPartWriter.SetBoundary(boundary)
@@ -230,13 +270,18 @@ func (mw *msgWriter) startMP(mimeType MIMEType, boundary string) {
 		multiPartWriter.Boundary())
 	mw.multiPartWriter[mw.depth] = multiPartWriter
 
-	if mw.depth == 0 {
-		mw.writeString(fmt.Sprintf("%s: %s", HeaderContentType, contentType))
+	// Do not write Content-Type if the header was already written as part of genHeaders.
+	if _, ok := msg.genHeader[HeaderContentType]; !ok {
+		if mw.depth == 0 {
+			mw.writeString(fmt.Sprintf("%s: %s", HeaderContentType, contentType))
+		}
+		if mw.depth > 0 {
+			mw.newPart(map[string][]string{"Content-Type": {contentType}})
+		}
 	}
-	if mw.depth > 0 {
-		mw.newPart(map[string][]string{"Content-Type": {contentType}})
-	}
+
 	mw.depth++
+	return multiPartWriter.Boundary()
 }
 
 // stopMP closes the multipart.
@@ -248,6 +293,28 @@ func (mw *msgWriter) stopMP() {
 		mw.err = mw.multiPartWriter[mw.depth-1].Close()
 		mw.depth--
 	}
+}
+
+// getMultipartBoundary returns the appropriate multipart boundary for the given MIME type.
+//
+// If the Msg has a predefined boundary, it is returned. Otherwise, the function checks
+// for a MIME type-specific boundary in the Msg's multiPartBoundary map. If no boundary
+// is found, an empty string is returned.
+//
+// Parameters:
+//   - msg: A pointer to the Msg containing the boundary and MIME type-specific mappings.
+//   - mimetype: The MIMEType for which the boundary is being determined.
+//
+// Returns:
+//   - A string representing the multipart boundary, or an empty string if none is found.
+func (mw *msgWriter) getMultipartBoundary(msg *Msg, mimetype MIMEType) string {
+	if msg.boundary != "" {
+		return msg.boundary
+	}
+	if msg.multiPartBoundary[mimetype] != "" {
+		return msg.multiPartBoundary[mimetype]
+	}
+	return ""
 }
 
 // addFiles adds the attachments/embeds file content to the mail body.
@@ -273,7 +340,7 @@ func (mw *msgWriter) addFiles(files []*File, isAttachment bool) {
 				mimeType = string(file.ContentType)
 			}
 			file.setHeader(HeaderContentType, fmt.Sprintf(`%s; name="%s"`, mimeType,
-				mw.encoder.Encode(mw.charset.String(), file.Name)))
+				mw.encoder.Encode(mw.charset.String(), sanitizeFilename(file.Name))))
 		}
 
 		if _, ok := file.getHeader(HeaderContentTransferEnc); !ok {
@@ -285,7 +352,7 @@ func (mw *msgWriter) addFiles(files []*File, isAttachment bool) {
 
 		if file.Desc != "" {
 			if _, ok := file.getHeader(HeaderContentDescription); !ok {
-				file.setHeader(HeaderContentDescription, file.Desc)
+				file.setHeader(HeaderContentDescription, mw.encoder.Encode(mw.charset.String(), file.Desc))
 			}
 		}
 
@@ -295,12 +362,12 @@ func (mw *msgWriter) addFiles(files []*File, isAttachment bool) {
 				disposition = "attachment"
 			}
 			file.setHeader(HeaderContentDisposition, fmt.Sprintf(`%s; filename="%s"`,
-				disposition, mw.encoder.Encode(mw.charset.String(), file.Name)))
+				disposition, mw.encoder.Encode(mw.charset.String(), sanitizeFilename(file.Name))))
 		}
 
 		if !isAttachment {
 			if _, ok := file.getHeader(HeaderContentID); !ok {
-				file.setHeader(HeaderContentID, fmt.Sprintf("<%s>", file.Name))
+				file.setHeader(HeaderContentID, fmt.Sprintf("<%s>", sanitizeFilename(file.Name)))
 			}
 		}
 		if mw.depth == 0 {
@@ -347,11 +414,16 @@ func (mw *msgWriter) writePart(part *Part, charset Charset) {
 	if partCharset.String() == "" {
 		partCharset = charset
 	}
+
 	contentType := fmt.Sprintf("%s; charset=%s", part.contentType, partCharset)
+	if part.smime {
+		contentType = part.contentType.String()
+	}
 	contentTransferEnc := part.encoding.String()
+
 	if mw.depth == 0 {
-		mw.writeHeader(HeaderContentType, contentType)
 		mw.writeHeader(HeaderContentTransferEnc, contentTransferEnc)
+		mw.writeHeader(HeaderContentType, contentType)
 		mw.writeString(SingleNewLine)
 	}
 	if mw.depth > 0 {
@@ -359,8 +431,8 @@ func (mw *msgWriter) writePart(part *Part, charset Charset) {
 		if part.description != "" {
 			mimeHeader.Add(string(HeaderContentDescription), part.description)
 		}
-		mimeHeader.Add(string(HeaderContentType), contentType)
 		mimeHeader.Add(string(HeaderContentTransferEnc), contentTransferEnc)
+		mimeHeader.Add(string(HeaderContentType), contentType)
 		mw.newPart(mimeHeader)
 	}
 	mw.writeBody(part.writeFunc, part.encoding)
@@ -393,14 +465,15 @@ func (mw *msgWriter) writeString(s string) {
 // Parameters:
 //   - key: The Header key to be written.
 //   - values: A variadic parameter representing the values associated with the header.
-func (mw *msgWriter) writeHeader(key Header, values ...string) {
+func (mw *msgWriter) writeHeader(key Header, values ...string) int {
+	lines := 0
 	buffer := strings.Builder{}
 	charLength := MaxHeaderLength - 2
 	buffer.WriteString(string(key))
 	charLength -= len(key)
 	if len(values) == 0 {
 		buffer.WriteString(":\r\n")
-		return
+		return lines + 1
 	}
 	buffer.WriteString(": ")
 	charLength -= 2
@@ -425,6 +498,9 @@ func (mw *msgWriter) writeHeader(key Header, values ...string) {
 		SingleNewLine)
 	mw.writeString(bufferString)
 	mw.writeString("\r\n")
+
+	lines += strings.Count(bufferString, SingleNewLine) + 1
+	return lines
 }
 
 // writeBody writes an io.Reader into an io.Writer using the provided Encoding.
@@ -450,7 +526,7 @@ func (mw *msgWriter) writeBody(writeFunc func(io.Writer) (int64, error), encodin
 		writer = mw.partWriter
 	}
 	writeBuffer := bytes.Buffer{}
-	lineBreaker := Base64LineBreaker{}
+	lineBreaker := base64LineBreaker{}
 	lineBreaker.out = &writeBuffer
 
 	switch encoding {
@@ -497,4 +573,34 @@ func (mw *msgWriter) writeBody(writeFunc func(io.Writer) (int64, error), encodin
 	if mw.depth == 0 {
 		mw.bytesWritten += n
 	}
+}
+
+// sanitizeFilename sanitizes a given filename string by replacing specific unwanted characters with
+// an underscore ('_').
+//
+// This method replaces any control character and any special character that is problematic for
+// MIME headers and file systems with an underscore ('_') character.
+//
+// The following characters are replaced
+// - Any control character (US-ASCII < 32)
+// - ", /, :, <, >, ?, \, |, [DEL]
+//
+// Parameters:
+//   - input: A string of a filename that is supposed to be sanitized
+//
+// Returns:
+//   - A string representing the sanitized version of the filename
+func sanitizeFilename(input string) string {
+	var sanitized strings.Builder
+	for i := 0; i < len(input); i++ {
+		// We do not allow control characters in file names.
+		if input[i] < 32 || input[i] == 34 || input[i] == 47 || input[i] == 58 ||
+			input[i] == 60 || input[i] == 62 || input[i] == 63 || input[i] == 92 ||
+			input[i] == 124 || input[i] == 127 {
+			sanitized.WriteRune('_')
+			continue
+		}
+		sanitized.WriteByte(input[i])
+	}
+	return sanitized.String()
 }

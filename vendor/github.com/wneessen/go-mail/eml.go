@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2023 The go-mail Authors
+// SPDX-FileCopyrightText: The go-mail Authors
 //
 // SPDX-License-Identifier: MIT
 
@@ -48,19 +48,13 @@ func EMLToMsgFromString(emlString string) (*Msg, error) {
 //   - A pointer to the Msg object populated with the parsed data, and an error if parsing
 //     fails.
 func EMLToMsgFromReader(reader io.Reader) (*Msg, error) {
-	msg := &Msg{
-		addrHeader:    make(map[AddrHeader][]*netmail.Address),
-		genHeader:     make(map[Header][]string),
-		preformHeader: make(map[Header]string),
-		mimever:       MIME10,
-	}
-
+	msg := NewMsg()
 	parsedMsg, bodybuf, err := readEMLFromReader(reader)
 	if err != nil || parsedMsg == nil {
 		return msg, fmt.Errorf("failed to parse EML from reader: %w", err)
 	}
 
-	if err := parseEML(parsedMsg, bodybuf, msg); err != nil {
+	if err = parseEML(parsedMsg, bodybuf, msg); err != nil {
 		return msg, fmt.Errorf("failed to parse EML contents: %w", err)
 	}
 
@@ -81,19 +75,13 @@ func EMLToMsgFromReader(reader io.Reader) (*Msg, error) {
 //   - A pointer to the Msg object populated with the parsed data, and an error if parsing
 //     fails.
 func EMLToMsgFromFile(filePath string) (*Msg, error) {
-	msg := &Msg{
-		addrHeader:    make(map[AddrHeader][]*netmail.Address),
-		genHeader:     make(map[Header][]string),
-		preformHeader: make(map[Header]string),
-		mimever:       MIME10,
-	}
-
+	msg := NewMsg()
 	parsedMsg, bodybuf, err := readEML(filePath)
 	if err != nil || parsedMsg == nil {
 		return msg, fmt.Errorf("failed to parse EML file: %w", err)
 	}
 
-	if err := parseEML(parsedMsg, bodybuf, msg); err != nil {
+	if err = parseEML(parsedMsg, bodybuf, msg); err != nil {
 		return msg, fmt.Errorf("failed to parse EML contents: %w", err)
 	}
 
@@ -218,9 +206,9 @@ func parseEMLHeaders(mailHeader *netmail.Header, msg *Msg) error {
 			for _, addr := range parsedAddrs {
 				addrStrings = append(addrStrings, addr.String())
 			}
-			if err = addrFunc(addrStrings...); err != nil {
-				return fmt.Errorf(`failed to parse %q header: %w`, addrHeader, err)
-			}
+			// We can skip the error checking here since netmail.ParseAddressList already performed the
+			// same address checking that the msg methods do.
+			_ = addrFunc(addrStrings...)
 		}
 	}
 
@@ -281,6 +269,9 @@ func parseEMLBodyParts(parsedMsg *netmail.Message, bodybuf *bytes.Buffer, msg *M
 	}
 	if value, ok := params["charset"]; ok {
 		msg.SetCharset(Charset(value))
+	}
+	if value, ok := params["boundary"]; ok {
+		msg.SetBoundary(value)
 	}
 
 	switch {
@@ -383,7 +374,7 @@ ReadNextPart:
 		return fmt.Errorf("failed to get next part of multipart message: %w", err)
 	}
 	for err == nil {
-		// Multipart/related and Multipart/alternative parts need to be parsed seperately
+		// Multipart/related and Multipart/alternative parts need to be parsed separately
 		if contentTypeSlice, ok := multiPart.Header[HeaderContentType.String()]; ok && len(contentTypeSlice) == 1 {
 			contentType, _ := parseMultiPartHeader(contentTypeSlice[0])
 			if strings.EqualFold(contentType, TypeMultipartRelated.String()) ||
@@ -544,16 +535,19 @@ func handleEMLMultiPartBase64Encoding(multiPartData []byte, part *Part) error {
 //   - The main header value as a string and a map of optional parameters.
 func parseMultiPartHeader(multiPartHeader string) (header string, optional map[string]string) {
 	optional = make(map[string]string)
-	headerSplit := strings.SplitN(multiPartHeader, ";", 2)
+	headerSplit := strings.Split(multiPartHeader, ";")
 	header = headerSplit[0]
-	if len(headerSplit) == 2 {
-		optString := strings.TrimLeft(headerSplit[1], " ")
+	if len(headerSplit) == 1 {
+		return header, optional
+	}
+	for _, opt := range headerSplit[1:] {
+		optString := strings.TrimLeft(opt, " ")
 		optSplit := strings.SplitN(optString, "=", 2)
 		if len(optSplit) == 2 {
 			optional[optSplit[0]] = optSplit[1]
 		}
 	}
-	return
+	return header, optional
 }
 
 // parseEMLAttachmentEmbed parses a multipart that is an attachment or embed.
@@ -600,6 +594,8 @@ func parseEMLAttachmentEmbed(contentDisposition []string, multiPart *multipart.P
 		if err := msg.EmbedReader(filename, dataReader); err != nil {
 			return fmt.Errorf("failed to embed multipart body: %w", err)
 		}
+	default:
+		return errors.New("unsupported content disposition type")
 	}
 	return nil
 }
