@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2010 The Go Authors. All rights reserved.
-// SPDX-FileCopyrightText: Copyright (c) 2022-2023 The go-mail Authors
+// SPDX-FileCopyrightText: Copyright (c) The go-mail Authors
 //
 // Original net/smtp code from the Go stdlib by the Go Authors.
 // Use of this source code is governed by a BSD-style
@@ -50,6 +50,9 @@ var (
 type Client struct {
 	// Text is the textproto.Conn used by the Client. It is exported to allow for clients to add extensions.
 	Text *textproto.Conn
+
+	// ErrorHandlerRegistry manages custom error handlers for SMTP host-command pairs.
+	ErrorHandlerRegistry *ErrorHandlerRegistry
 
 	// auth supported auth mechanisms
 	auth []string
@@ -131,6 +134,7 @@ func NewClient(conn net.Conn, host string) (*Client, error) {
 	c := &Client{Text: text, conn: conn, serverName: host, localName: "localhost"}
 	_, c.tls = conn.(*tls.Conn)
 	c.isConnected = true
+	c.ErrorHandlerRegistry = NewErrorHandlerRegistry()
 
 	return c, nil
 }
@@ -195,7 +199,22 @@ func (c *Client) cmd(expectCode int, format string, args ...interface{}) (int, s
 		return 0, "", err
 	}
 	c.Text.StartResponse(id)
+	defer c.Text.EndResponse(id)
 	code, msg, err := c.Text.ReadResponse(expectCode)
+	if err != nil {
+		fmtValues := strings.Split(format, " ")
+		currentCmd := strings.ToLower(fmtValues[0])
+		handler := c.ErrorHandlerRegistry.GetHandler(c.serverName, currentCmd)
+		handledErr := handler.HandleError(c.serverName, currentCmd, c.Text, err)
+		if handledErr != nil {
+			c.mutex.Unlock()
+			return 0, "", handledErr
+		}
+
+		// If the handler successfully recovered, we try reading the response again
+		// This assumes the handler has consumed the problematic data beforehand.
+		code, msg, err = c.Text.ReadResponse(expectCode)
+	}
 
 	logMsg = []interface{}{code, msg}
 	if c.authIsActive && code >= 300 && code <= 400 {
@@ -203,7 +222,6 @@ func (c *Client) cmd(expectCode int, format string, args ...interface{}) (int, s
 	}
 	c.debugLog(log.DirServerToClient, "%d %s", logMsg...)
 
-	c.Text.EndResponse(id)
 	c.mutex.Unlock()
 	return code, msg, err
 }
@@ -248,10 +266,10 @@ func (c *Client) TLSConnectionState() (state tls.ConnectionState, ok bool) {
 
 	tc, ok := c.conn.(*tls.Conn)
 	if !ok {
-		return
+		return state, ok
 	}
 	state, ok = tc.ConnectionState(), true
-	return
+	return state, ok
 }
 
 // Verify checks the validity of an email address on the server.
@@ -350,7 +368,7 @@ func (c *Client) Mail(from string) error {
 	if err := c.hello(); err != nil {
 		return err
 	}
-	cmdStr := "MAIL FROM:<%s>"
+	cmdStr := "MAIL FROM:%s"
 
 	c.mutex.RLock()
 	if c.ext != nil {
@@ -384,33 +402,46 @@ func (c *Client) Rcpt(to string) error {
 	c.mutex.RUnlock()
 
 	if ok && c.dsnrntype != "" {
-		_, _, err := c.cmd(25, "RCPT TO:<%s> NOTIFY=%s", to, c.dsnrntype)
+		_, _, err := c.cmd(25, "RCPT TO:%s NOTIFY=%s", to, c.dsnrntype)
 		return err
 	}
-	_, _, err := c.cmd(25, "RCPT TO:<%s>", to)
+	_, _, err := c.cmd(25, "RCPT TO:%s", to)
 	return err
 }
 
-type dataCloser struct {
-	c *Client
+type DataCloser struct {
+	c    *Client
+	done bool
 	io.WriteCloser
+	response string
 }
 
 // Close releases the lock, closes the WriteCloser, waits for a response, and then returns any error encountered.
-func (d *dataCloser) Close() error {
+func (d *DataCloser) Close() error {
 	d.c.mutex.Lock()
 	_ = d.WriteCloser.Close()
-	_, _, err := d.c.Text.ReadResponse(250)
+	_, resp, err := d.c.Text.ReadResponse(250)
+	d.response = resp
+	d.done = true
 	d.c.mutex.Unlock()
 	return err
 }
 
 // Write writes data to the underlying WriteCloser while ensuring thread-safety by locking and unlocking a mutex.
-func (d *dataCloser) Write(p []byte) (n int, err error) {
+func (d *DataCloser) Write(p []byte) (n int, err error) {
 	d.c.mutex.Lock()
 	n, err = d.WriteCloser.Write(p)
 	d.c.mutex.Unlock()
-	return
+	return n, err
+}
+
+// ServerResponse returns the response that was returned by the server after the DataCloser has
+// been closed. If the DataCloser has not been closed yet, it will return an empty string.
+func (d *DataCloser) ServerResponse() string {
+	if !d.done {
+		return ""
+	}
+	return d.response
 }
 
 // Data issues a DATA command to the server and returns a writer that
@@ -422,7 +453,7 @@ func (c *Client) Data() (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	datacloser := &dataCloser{}
+	datacloser := &DataCloser{}
 
 	c.mutex.Lock()
 	datacloser.c = c
@@ -554,9 +585,9 @@ func (c *Client) Noop() error {
 
 // Quit sends the QUIT command and closes the connection to the server.
 func (c *Client) Quit() error {
-	if err := c.hello(); err != nil {
-		return err
-	}
+	// See https://github.com/golang/go/issues/70011
+	_ = c.hello() // ignore error; we're quitting anyhow
+
 	_, _, err := c.cmd(221, "QUIT")
 	if err != nil {
 		return err
@@ -587,7 +618,9 @@ func (c *Client) SetLogger(l log.Logger) {
 	if l == nil {
 		return
 	}
+	c.mutex.Lock()
 	c.logger = l
+	c.mutex.Unlock()
 }
 
 // SetLogAuthData enables logging of authentication data in the Client.
@@ -599,12 +632,16 @@ func (c *Client) SetLogAuthData() {
 
 // SetDSNMailReturnOption sets the DSN mail return option for the Mail method
 func (c *Client) SetDSNMailReturnOption(d string) {
+	c.mutex.Lock()
 	c.dsnmrtype = d
+	c.mutex.Unlock()
 }
 
 // SetDSNRcptNotifyOption sets the DSN recipient notify option for the Mail method
 func (c *Client) SetDSNRcptNotifyOption(d string) {
+	c.mutex.Lock()
 	c.dsnrntype = d
+	c.mutex.Unlock()
 }
 
 // HasConnection checks if the client has an active connection.
@@ -620,6 +657,9 @@ func (c *Client) HasConnection() bool {
 func (c *Client) UpdateDeadline(timeout time.Duration) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	if c.conn == nil {
+		return errors.New("smtp: client has no connection")
+	}
 	if err := c.conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return fmt.Errorf("smtp: failed to update deadline: %w", err)
 	}

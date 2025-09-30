@@ -1,7 +1,7 @@
 <!--
-SPDX-FileCopyrightText: 2022-2023 The go-mail Authors
+SPDX-FileCopyrightText: The go-mail Authors
 
-SPDX-License-Identifier: CC0-1.0
+SPDX-License-Identifier: MIT
 -->
 
 # go-mail - Easy to use, yet comprehensive library for sending mails with Go
@@ -16,7 +16,7 @@ SPDX-License-Identifier: CC0-1.0
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/wneessen/go-mail/badge)](https://securityscorecards.dev/viewer/?uri=github.com/wneessen/go-mail)
 <a href="https://ko-fi.com/D1D24V9IX"><img src="https://uploads-ssl.webflow.com/5c14e387dab576fe667689cf/5cbed8a4ae2b88347c06c923_BuyMeACoffee_blue.png" height="20" alt="buy ma a coffee"></a>
 
-<p align="center"><img src="./assets/gopher2.svg" width="250" alt="go-mail logo"/></p>
+<p style="text-align: center"><img src="./assets/gopher2.svg" width="250" alt="go-mail logo"/></p>
 
 The main idea of this library was to provide a simple interface for sending mails to
 my [JS-Mailer](https://github.com/wneessen/js-mailer) project. It quickly evolved into a full-fledged mail library.
@@ -39,14 +39,20 @@ Here are some highlights of go-mail's featureset:
 * [X] Very small dependency footprint (mainly Go Stdlib and Go extended packages)
 * [X] Modern, idiomatic Go
 * [X] Sane and secure defaults
-* [X] Explicit SSL/TLS support
-* [X] Implicit StartTLS support with different policies
+* [X] Implicit SSL/TLS support
+* [X] Explicit STARTTLS support with different policies
 * [X] Makes use of contexts for a better control flow and timeout/cancelation handling
-* [X] SMTP Auth support (LOGIN, PLAIN, CRAM-MD, XOAUTH2, SCRAM-SHA-1(-PLUS), SCRAM-SHA-256(-PLUS))
+* [X] SMTP Auth support
+  * [X] CRAM-MD5
+  * [X] LOGIN
+  * [X] PLAIN
+  * [X] SCRAM-SHA-1/SCRAM-SHA-1-PLUS
+  * [X] SCRAM-SHA-256/SCRAM-SHA-256-PLUS
+  * [X] XOAUTH2
 * [X] RFC5322 compliant mail address validation
 * [X] Support for common mail header field generation (Message-ID, Date, Bulk-Precedence, Priority, etc.)
 * [X] Concurrency-safe reusing the same SMTP connection to send multiple mails
-* [X] Support for attachments and inline embeds (from file system, `io.Reader` or `embed.FS`)
+* [X] Support for attachments and inline embeds (from file system, `io.Reader`, `embed.FS` or `fs.FS`)
 * [X] Support for different encodings
 * [X] Middleware support for 3rd-party libraries to alter mail messages
 * [X] Support sending mails via a local sendmail command
@@ -59,6 +65,9 @@ Here are some highlights of go-mail's featureset:
 * [X] Custom error types for delivery errors
 * [X] Custom dial-context functions for more control over the connection (proxing, DNS hooking, etc.)
 * [X] Output a go-mail message as EML file and parse EML file into a go-mail message
+* [X] S/MIME message signing support (RSA and ECDSA)
+* [X] UNIX domain socket support
+* [X] Pluggable SMTP error registry for advanced handling of non-RFC-conforming servers
 
 go-mail works like a programatic email client and provides lots of methods and functionalities you would consider
 standard in a MUA.
@@ -69,12 +78,13 @@ documentation website at [go-mail.dev](https://go-mail.dev)
 
 ## Compatibility
 
-Go is growing fast and providing great features with every new release. While we'd love to adopt the latest Go features
-into our code, we realize that not everybody using this package can run the latest Go versions. Therefore we try to
-implement alternative solutions for Go versions that do not support these features. Yet, the work needed to maintain
-the separate versions is not to be underestimated. For that reason, we might retire that code at some point. 
-We guarantee that go-mail will always support the last four releases of Go. With two Go releases per year, this gives
-the user a timeframe of two years to update to the next or even the latest version of Go.
+Go evolves quickly and introduces valuable improvements with each release. To balance adopting new features with 
+ensuring stability for our users, we align our support with the official Go release policy. In practice, go-mail 
+will always support the same set of Go versions that the Go team actively maintains.
+
+Since Go provides two releases per year, this translates into roughly one year of guaranteed compatibility for 
+any given Go version. We encourage users to stay current with supported Go versions to benefit from security 
+updates, performance improvements, and new language features.
 
 ## Support
 We have a support and general discussion channel on Discord. Find us at: [#go-mail](https://discord.gg/dbfQyC4s) alternatively find us
@@ -106,7 +116,7 @@ contributed ot the project. Big thanks to all of them for improving the go-mail 
 code, reviewing code, writing documenation or helping to translate the website):
 
 <a href="https://github.com/wneessen/go-mail/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=wneessen/go-mail" />
+  <img alt="image of contributors" src="https://contrib.rocks/image?repo=wneessen/go-mail" />
 </a>
 
 A huge thank you also goes to [Maria Letta](https://github.com/MariaLetta) for designing our super cool go-mail logo!

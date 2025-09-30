@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2024 The go-mail Authors
+// SPDX-FileCopyrightText: Copyright (c) The go-mail Authors
 //
 // SPDX-License-Identifier: MIT
 
@@ -7,6 +7,7 @@ package smtp
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -19,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/text/secure/precis"
 )
 
@@ -154,7 +154,7 @@ func (a *scramAuth) initialClientMessage() ([]byte, error) {
 		connState := a.tlsConnState
 		bindData := connState.TLSUnique
 
-		// crypto/tl: no tls-unique channel binding value for this tls connection, possibly due to missing
+		// crypto/tls: no tls-unique channel binding value for this tls connection, possibly due to missing
 		// extended master key support and/or resumed connection
 		// RFC9266:122 tls-unique not defined for tls 1.3 and later
 		if bindData == nil || connState.Version >= tls.VersionTLS13 {
@@ -214,7 +214,10 @@ func (a *scramAuth) handleServerFirstResponse(fromServer []byte) ([]byte, error)
 		return nil, fmt.Errorf("unable to normalize password: %w", err)
 	}
 
-	a.saltedPwd = pbkdf2.Key([]byte(password), salt, a.iterations, a.h().Size(), a.h)
+	a.saltedPwd, err = pbkdf2.Key(a.h, password, salt, a.iterations, a.h().Size())
+	if err != nil {
+		return nil, fmt.Errorf("unable to derive key: %w", err)
+	}
 
 	msgWithoutProof := []byte("c=biws,r=" + string(a.nonce))
 
@@ -308,10 +311,7 @@ func (a *scramAuth) normalizeUsername() (string, error) {
 func (a *scramAuth) normalizeString(s string) (string, error) {
 	s, err := precis.OpaqueString.String(s)
 	if err != nil {
-		return "", fmt.Errorf("failled to normalize string: %w", err)
-	}
-	if s == "" {
-		return "", errors.New("normalized string is empty")
+		return "", fmt.Errorf("failed to normalize string: %w", err)
 	}
 	return s, nil
 }

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2010 The Go Authors. All rights reserved.
-// SPDX-FileCopyrightText: Copyright (c) 2022-2023 The go-mail Authors
+// SPDX-FileCopyrightText: Copyright (c) The go-mail Authors
 //
 // Original net/smtp code from the Go stdlib by the Go Authors.
 // Use of this source code is governed by a BSD-style
@@ -17,6 +17,7 @@ package smtp
 type plainAuth struct {
 	identity, username, password string
 	host                         string
+	allowUnencryptedAuth         bool
 }
 
 // PlainAuth returns an [Auth] that implements the PLAIN authentication
@@ -27,8 +28,8 @@ type plainAuth struct {
 // PlainAuth will only send the credentials if the connection is using TLS
 // or is connected to localhost. Otherwise authentication will fail with an
 // error, without sending the credentials.
-func PlainAuth(identity, username, password, host string) Auth {
-	return &plainAuth{identity, username, password, host}
+func PlainAuth(identity, username, password, host string, allowUnenc bool) Auth {
+	return &plainAuth{identity, username, password, host, allowUnenc}
 }
 
 func (a *plainAuth) Start(server *ServerInfo) (string, []byte, error) {
@@ -37,7 +38,7 @@ func (a *plainAuth) Start(server *ServerInfo) (string, []byte, error) {
 	// In particular, it doesn't matter if the server advertises PLAIN auth.
 	// That might just be the attacker saying
 	// "it's ok, you can trust me with your password."
-	if !server.TLS && !isLocalhost(server.Name) {
+	if !a.allowUnencryptedAuth && !server.TLS && !isLocalhost(server.Name) {
 		return "", nil, ErrUnencrypted
 	}
 	if server.Name != a.host {

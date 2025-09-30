@@ -1,9 +1,6 @@
-// SPDX-FileCopyrightText: Copyright (c) 2023 The go-mail Authors
+// SPDX-FileCopyrightText: Copyright (c) The go-mail Authors
 //
 // SPDX-License-Identifier: MIT
-
-//go:build go1.21
-// +build go1.21
 
 package log
 

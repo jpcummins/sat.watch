@@ -1,9 +1,6 @@
-// SPDX-FileCopyrightText: 2022-2023 The go-mail Authors
+// SPDX-FileCopyrightText: The go-mail Authors
 //
 // SPDX-License-Identifier: MIT
-
-//go:build go1.17
-// +build go1.17
 
 package mail
 
