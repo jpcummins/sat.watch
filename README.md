@@ -1,4 +1,4 @@
-# sat.watch
+# satwatch
 
 **sat.watch** is a Go application that continuously monitors the Bitcoin blockchain for activity (funds sent or received) on user-specified addresses and will send a notification if a transaction is detected.
 
