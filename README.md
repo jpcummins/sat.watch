@@ -2,17 +2,9 @@
 
 **sat.watch** is a Go application that continuously monitors the Bitcoin blockchain for activity (funds sent or received) on user-specified addresses and will send a notification if a transaction is detected.
 
-This is the open-source, self-hosted version of sat.watch. If you prefer a hosted solution with additional features, a commercial version is available at [https://sat.watch](https://sat.watch).
-
-![sat.watch app dashboard](https://sat.watch/static/screenshots/1.1.5-5.png "sat.watch app dashboard")
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Security
-
-If you discover a security vulnerability within sat.watch, please send an email to the address listed at [https://sat.watch/contact](https://sat.watch/contact). You can find my PGP key there as well for secure communication. All security vulnerabilities will be promptly addressed.
 
 ## Dependencies
 
@@ -21,8 +13,6 @@ If you discover a security vulnerability within sat.watch, please send an email 
 - Electrum server, such as [electrs](https://github.com/romanz/electrs) or [Fulcrum](https://github.com/cculianu/Fulcrum).
 - Postgres
 - SMTP credentials
-
-
 
 
 ## Installation
