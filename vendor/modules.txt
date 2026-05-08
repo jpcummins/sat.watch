@@ -263,8 +263,8 @@ github.com/wneessen/go-mail/smtp
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
-# golang.org/x/crypto v0.37.0
-## explicit; go 1.23.0
+# golang.org/x/crypto v0.45.0
+## explicit; go 1.24.0
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/argon2
@@ -278,8 +278,8 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ripemd160
 golang.org/x/crypto/sha3
-# golang.org/x/net v0.38.0
-## explicit; go 1.23.0
+# golang.org/x/net v0.47.0
+## explicit; go 1.24.0
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/http/httpguts
@@ -288,16 +288,16 @@ golang.org/x/net/http2/h2c
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/httpcommon
-# golang.org/x/sync v0.17.0
+# golang.org/x/sync v0.18.0
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.32.0
-## explicit; go 1.23.0
+# golang.org/x/sys v0.38.0
+## explicit; go 1.24.0
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
-# golang.org/x/text v0.29.0
+# golang.org/x/text v0.31.0
 ## explicit; go 1.24.0
 golang.org/x/text/cases
 golang.org/x/text/feature/plural
